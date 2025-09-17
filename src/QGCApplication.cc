@@ -100,7 +100,7 @@ QGCApplication::QGCApplication(int &argc, char *argv[], bool unitTesting, bool s
         applicationName = QGC_APP_NAME;
 #endif
     }
-    setApplicationName(applicationName);
+    setApplicationName("ANELLO Mariner Control");
     setOrganizationName(QGC_ORG_NAME);
     setOrganizationDomain(QGC_ORG_DOMAIN);
     setApplicationVersion(QString(QGC_APP_VERSION_STR));

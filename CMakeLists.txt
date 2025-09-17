@@ -218,13 +218,7 @@ endif()
 file(GLOB TS_SOURCES ${CMAKE_SOURCE_DIR}/translations/qgc_*.ts)
 set_source_files_properties(${TS_SOURCES} PROPERTIES OUTPUT_LOCATION "${CMAKE_BINARY_DIR}/i18n")
 
-qt_add_translations(${CMAKE_PROJECT_NAME}
-    TS_FILES ${TS_SOURCES}
-    RESOURCE_PREFIX "/"
-    LUPDATE_OPTIONS -no-obsolete
-    TS_FILE_DIR "${CMAKE_SOURCE_DIR}/translations"
-    TS_FILE_BASE ${CMAKE_PROJECT_NAME}
-)
+
 
 qgc_set_qt_resource_alias(${CMAKE_SOURCE_DIR}/resources/qtquickcontrols2.conf)
 
