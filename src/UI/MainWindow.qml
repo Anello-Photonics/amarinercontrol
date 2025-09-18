@@ -379,7 +379,7 @@ ApplicationWindow {
                             height:             toolSelectDialog._toolButtonHeight
                             Layout.fillWidth:   true
                             text:               qsTr("Application Settings")
-                            imageResource:      "/res/QGCLogoFull.svg"
+                            imageResource:      "/res/ANELLOLogoFull.svg"
                             imageColor:         "transparent"
                             visible:            !QGroundControl.corePlugin.options.combineSettingsAndSetup
                             onClicked: {
