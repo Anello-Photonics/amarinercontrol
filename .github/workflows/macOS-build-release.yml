@@ -1,0 +1,60 @@
+name: macOS Build and Release
+
+on:
+  push:
+    tags:
+      - "v*"    # Run only when you push a version tag like v1.0.0
+  workflow_dispatch:   # Allow manual trigger
+
+jobs:
+  build-macos:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v3
+        with:
+          version: '6.8.3'
+          host: 'mac'
+          target: 'desktop'
+          arch: 'clang_64'
+
+      - name: Build with CMake
+        run: |
+          cmake -B build -DCMAKE_PREFIX_PATH=$Qt6_DIR -DCMAKE_BUILD_TYPE=Release
+          cmake --build build --config Release
+
+      - name: Rename .app bundle
+        run: |
+          APP_PATH="build/Release/QGroundControl.app"
+          if [ -d "$APP_PATH" ]; then
+            mv "$APP_PATH" "build/Release/AMarinerControl.app"
+          fi
+
+      - name: Run macdeployqt to create DMG
+        run: |
+          macdeployqt build/Release/AMarinerControl.app -dmg
+
+      - name: Rename DMG
+        run: |
+          if [ -f "build/Release/AMarinerControl.dmg" ]; then
+            echo "DMG already named correctly."
+          else
+            mv build/Release/*.dmg build/Release/AMarinerControl.dmg
+          fi
+
+      - name: Upload DMG as Artifact (optional)
+        uses: actions/upload-artifact@v4
+        with:
+          name: AMarinerControl-macOS
+          path: build/Release/AMarinerControl.dmg
+
+      - name: Create Release and Upload DMG
+        uses: softprops/action-gh-release@v2
+        with:
+          files: build/Release/AMarinerControl.dmg
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
