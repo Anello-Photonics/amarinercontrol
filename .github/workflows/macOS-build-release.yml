@@ -1,51 +1,67 @@
-name: Build macOS Release
+name: build-macos-release
 
 on:
   push:
-    branches:
-      - master
-  workflow_dispatch:
+    branches: [master]
+  pull_request:
+    branches: [master]
 
 jobs:
   build-macos:
     runs-on: macos-latest
+
     env:
       QT_VERSION: 6.8.3
+      BUILD_DIR: build-macos
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Python
+      - name: Setup Python
         uses: actions/setup-python@v4
         with:
-          python-version: "3.11"
+          python-version: 3.11
 
-      - name: Install aqtinstall
-        run: python3 -m pip install --upgrade pip wheel setuptools aqtinstall
+      - name: Install dependencies
+        run: |
+          brew update
+          brew install cmake p7zip
+
+      - name: Install aqt
+        run: |
+          python3 -m pip install --upgrade pip setuptools wheel
+          python3 -m pip install aqtinstall==3.3.0
 
       - name: List available Qt modules
-        run: python3 -m aqt list-qt mac desktop --modules $QT_VERSION clang_64
+        run: |
+          python3 -m aqt list-qt mac desktop --modules $QT_VERSION clang_64
 
       - name: Install Qt
         run: |
           python3 -m aqt install-qt mac desktop $QT_VERSION clang_64 \
             --outputdir $HOME/Qt \
-            --modules qtwebengine,qtpdf
+            --modules qtcharts qtquick3d qtmultimedia qtlocation qtserialport qtsvg qttexttospeech qtwebengine qtpdf
 
-      - name: Configure project
-        run: cmake -B build -DCMAKE_PREFIX_PATH=$HOME/Qt/$QT_VERSION/macos -DCMAKE_BUILD_TYPE=Release
+      - name: Configure CMake
+        run: |
+          cmake -B $BUILD_DIR -S . \
+            -DCMAKE_PREFIX_PATH=$HOME/Qt/$QT_VERSION/clang_64 \
+            -DCMAKE_BUILD_TYPE=Release
 
       - name: Build project
-        run: cmake --build build --config Release
+        run: cmake --build $BUILD_DIR --config Release -j$(sysctl -n hw.ncpu)
 
-      - name: Package app
-        run: macdeployqt build/Release/AMarinerControl.app
+      - name: Deploy macOS app bundle
+        run: |
+          $HOME/Qt/$QT_VERSION/clang_64/bin/macdeployqt $BUILD_DIR/Release/AMarinerControl.app
 
-      - name: Archive DMG
-        run: hdiutil create -volname AMarinerControl -srcfolder build/Release/AMarinerControl.app -ov -format UDZO AMarinerControl.dmg
+      - name: Create DMG
+        run: |
+          hdiutil create -volname AMarinerControl -srcfolder $BUILD_DIR/Release/AMarinerControl.app -ov -format UDZO $BUILD_DIR/AMarinerControl.dmg
 
       - name: Upload DMG artifact
         uses: actions/upload-artifact@v4
         with:
           name: AMarinerControl-macOS
-          path: AMarinerControl.dmg
+          path: $BUILD_DIR/AMarinerControl.dmg
