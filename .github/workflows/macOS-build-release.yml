@@ -58,7 +58,7 @@ jobs:
           -dmg
 
     - name: Upload DMG artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: AMarinerControl-macOS
         path: $BUILD_DIR/Release/AMarinerControl.dmg
