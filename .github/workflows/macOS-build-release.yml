@@ -1,83 +1,64 @@
-name: macOS Build and Release
+name: macOS Build
 
 on:
   push:
-    tags:
-      - "v*"    # Runs on version tags like v1.0.0
-  workflow_dispatch:   # Allows manual trigger
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
 
 jobs:
   build-macos:
     runs-on: macos-latest
 
+    env:
+      QT_VERSION: 6.8.3
+      QT_OUTPUT: ${{ github.workspace }}/Qt
+      BUILD_DIR: ${{ github.workspace }}/build-macos
+
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+    - name: Checkout repository
+      uses: actions/checkout@v3
 
-      - name: Install Qt 6.8.3 with required modules
-        uses: jurplel/install-qt-action@v3
-        with:
-          version: '6.8.3'
-          host: 'mac'
-          target: 'desktop'
-          arch: 'clang_64'
-          modules: 'charts,quick3d,location,multimedia,svg,serialport,texttospeech'
+    - name: Install Homebrew dependencies
+      run: |
+        brew update
+        brew install p7zip cmake ninja python
 
-      - name: Show Qt path
-        run: |
-          echo "Qt6_DIR=$Qt6_DIR"
-          ls -l $Qt6_DIR/lib/cmake
+    - name: Set up Python and pip
+      uses: actions/setup-python@v4
+      with:
+        python-version: 3.11
 
-      - name: Build with CMake
-        run: |
-          cmake -B build -DCMAKE_PREFIX_PATH=$Qt6_DIR -DCMAKE_BUILD_TYPE=Release
-          cmake --build build --config Release
+    - name: Install aqtinstall and dependencies
+      run: |
+        python3 -m pip install --upgrade pip setuptools wheel
+        python3 -m pip install aqtinstall==3.1.* py7zr==1.0.0
 
-      - name: Rename .app bundle
-        run: |
-          APP_PATH="build/Release/QGroundControl.app"
-          TARGET_APP="build/Release/AMarinerControl.app"
-          if [ -d "$APP_PATH" ]; then
-            mv "$APP_PATH" "$TARGET_APP"
-          else
-            echo "ERROR: .app bundle not found at $APP_PATH"
-            exit 1
-          fi
+    - name: Install Qt 6.8.3 with required modules
+      run: |
+        python3 -m aqt install-qt mac desktop $QT_VERSION clang_64 \
+          --outputdir $QT_OUTPUT \
+          --modules charts quick3d location multimedia svg serialport texttospeech
 
-      - name: Run macdeployqt to create DMG
-        run: |
-          APP_BUNDLE="build/Release/AMarinerControl.app"
-          if [ -d "$APP_BUNDLE" ]; then
-            macdeployqt "$APP_BUNDLE" -dmg
-          else
-            echo "ERROR: Cannot run macdeployqt, app bundle missing"
-            exit 1
-          fi
+    - name: Configure CMake
+      run: |
+        cmake -B $BUILD_DIR \
+          -DCMAKE_PREFIX_PATH=$QT_OUTPUT/$QT_VERSION/macos \
+          -DCMAKE_BUILD_TYPE=Release \
+          -GNinja
 
-      - name: List Release folder
-        run: |
-          echo "Contents of build/Release:"
-          ls -l build/Release
+    - name: Build QGroundControl
+      run: |
+        cmake --build $BUILD_DIR --config Release
 
-      - name: Find DMG
-        id: find_dmg
-        run: |
-          DMG_FILE=$(ls build/Release/*.dmg | head -n 1)
-          if [ -z "$DMG_FILE" ]; then
-            echo "ERROR: No DMG found"
-            exit 1
-          fi
-          echo "DMG_FILE=$DMG_FILE" >> $GITHUB_ENV
+    - name: Deploy macOS app
+      run: |
+        $QT_OUTPUT/$QT_VERSION/macos/bin/macdeployqt \
+          $BUILD_DIR/Release/AMarinerControl.app \
+          -dmg
 
-      - name: Upload DMG as Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: AMarinerControl-macOS
-          path: ${{ env.DMG_FILE }}
-
-      - name: Create GitHub Release and Upload DMG
-        uses: softprops/action-gh-release@v2
-        with:
-          files: ${{ env.DMG_FILE }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    - name: Upload DMG artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: AMarinerControl-macOS
+        path: $BUILD_DIR/Release/AMarinerControl.dmg
