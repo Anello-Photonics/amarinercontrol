@@ -1,10 +1,10 @@
-name: build-macos-release
+name: Build macOS Release
 
 on:
   push:
-    branches: [master]
+    branches:
+      - master
   pull_request:
-    branches: [master]
 
 jobs:
   build-macos:
@@ -15,23 +15,18 @@ jobs:
       BUILD_DIR: build-macos
 
     steps:
-      - name: Checkout repository
+      - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
-          python-version: 3.11
+          python-version: "3.11"
 
       - name: Install dependencies
         run: |
-          brew update
-          brew install cmake p7zip
-
-      - name: Install aqt
-        run: |
-          python3 -m pip install --upgrade pip setuptools wheel
-          python3 -m pip install aqtinstall==3.3.0
+          brew install p7zip
+          python3 -m pip install --upgrade pip setuptools wheel py7zr aqtinstall
 
       - name: List available Qt modules
         run: |
@@ -41,27 +36,26 @@ jobs:
         run: |
           python3 -m aqt install-qt mac desktop $QT_VERSION clang_64 \
             --outputdir $HOME/Qt \
-            --modules qtcharts qtquick3d qtmultimedia qtlocation qtserialport qtspeech qtwebengine qtpdf
+            --modules qt3d,qt5compat,qtcharts,qtconnectivity,qtdatavis3d,qtgraphs,qtgrpc,qthttpserver,qtimageformats,qtlanguageserver,qtlocation,qtlottie,qtmultimedia,qtnetworkauth,qtpdf,qtpositioning,qtquick3d,qtquick3dphysics,qtquickeffectmaker,qtquicktimeline,qtremoteobjects,qtscxml,qtsensors,qtserialbus,qtserialport,qtshadertools,qtspeech,qtvirtualkeyboard,qtwebchannel,qtwebengine,qtwebsockets,qtwebview
 
       - name: Configure CMake
         run: |
+          mkdir -p $BUILD_DIR
           cmake -B $BUILD_DIR -S . \
-            -DCMAKE_PREFIX_PATH=$HOME/Qt/$QT_VERSION/clang_64 \
-            -DCMAKE_BUILD_TYPE=Release
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_PREFIX_PATH=$HOME/Qt/$QT_VERSION/macos
 
-      - name: Build project
-        run: cmake --build $BUILD_DIR --config Release -j$(sysctl -n hw.ncpu)
-
-      - name: Deploy macOS app bundle
+      - name: Build
         run: |
-          $HOME/Qt/$QT_VERSION/clang_64/bin/macdeployqt $BUILD_DIR/Release/AMarinerControl.app
+          cmake --build $BUILD_DIR --config Release --parallel
 
-      - name: Create DMG
+      - name: Package .app bundle
         run: |
-          hdiutil create -volname AMarinerControl -srcfolder $BUILD_DIR/Release/AMarinerControl.app -ov -format UDZO $BUILD_DIR/AMarinerControl.dmg
+          cd $BUILD_DIR/Release
+          zip -r QGroundControl-macOS.zip QGroundControl.app
 
-      - name: Upload DMG artifact
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: AMarinerControl-macOS
-          path: $BUILD_DIR/AMarinerControl.dmg
+          name: QGroundControl-macOS
+          path: $BUILD_DIR/Release/QGroundControl-macOS.zip
