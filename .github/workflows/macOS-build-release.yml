@@ -3,8 +3,8 @@ name: macOS Build and Release
 on:
   push:
     tags:
-      - "v*"    # Runs when you push a version tag like v1.0.0
-  workflow_dispatch:   # Allow manual trigger
+      - "v*"    # Runs on version tags like v1.0.0
+  workflow_dispatch:   # Allows manual trigger
 
 jobs:
   build-macos:
@@ -14,13 +14,19 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install Qt
+      - name: Install Qt 6.8.3 with required modules
         uses: jurplel/install-qt-action@v3
         with:
           version: '6.8.3'
           host: 'mac'
           target: 'desktop'
           arch: 'clang_64'
+          modules: 'charts,quick3d,location,multimedia,svg,serialport,texttospeech'
+
+      - name: Show Qt path
+        run: |
+          echo "Qt6_DIR=$Qt6_DIR"
+          ls -l $Qt6_DIR/lib/cmake
 
       - name: Build with CMake
         run: |
