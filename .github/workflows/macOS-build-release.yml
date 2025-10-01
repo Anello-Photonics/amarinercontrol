@@ -38,9 +38,11 @@ jobs:
             --outputdir $HOME/Qt \
             --modules qtcharts qt3d qt5compat qtcharts qtconnectivity qtdatavis3d qtgraphs qtgrpc qthttpserver qtimageformats qtlanguageserver qtlocation qtlottie qtmultimedia qtnetworkauth qtpdf qtpositioning qtquick3d qtquick3dphysics qtquickeffectmaker qtquicktimeline qtremoteobjects qtscxml qtsensors qtserialbus qtserialport qtshadertools qtspeech qtvirtualkeyboard qtwebchannel qtwebengine qtwebsockets qtwebview
 
-      - name: Install GStreamer
+      - name: Install GStreamer (Framework)
         run: |
-          brew install gstreamer gst-plugins-base gst-plugins-good gst-plugins-bad gst-plugins-ugly
+          curl -L -o gstreamer.pkg https://gstreamer.freedesktop.org/data/pkg/osx/1.24.9/gstreamer-1.0-devel-1.24.9-universal.pkg
+          sudo installer -pkg gstreamer.pkg -target /
+
 
       - name: Configure CMake
         run: |
