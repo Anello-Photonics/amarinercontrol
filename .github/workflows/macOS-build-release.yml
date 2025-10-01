@@ -57,7 +57,9 @@ jobs:
           mkdir -p $BUILD_DIR
           cmake -B $BUILD_DIR -S . \
             -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_PREFIX_PATH="$HOME/Qt/$QT_VERSION/macos:$(brew --prefix gstreamer):$(brew --prefix gst-plugins-base)"
+            -DCMAKE_PREFIX_PATH="$HOME/Qt/$QT_VERSION/macos/lib/cmake/Qt6:$(brew --prefix gstreamer):$(brew --prefix gst-plugins-base)" \
+            -DQt6_DIR="$HOME/Qt/$QT_VERSION/macos/lib/cmake/Qt6"
+
 
       - name: Build
         run: |
