@@ -42,14 +42,18 @@ jobs:
         run: |
           curl -L -o gstreamer.pkg https://gstreamer.freedesktop.org/data/pkg/osx/1.24.9/gstreamer-1.0-devel-1.24.9-universal.pkg
           sudo installer -pkg gstreamer.pkg -target /
-
+          
+      - name: Set up GStreamer env
+        run: |
+          echo "CMAKE_PREFIX_PATH=/Library/Frameworks/GStreamer.framework/Versions/Current" >> $GITHUB_ENV
+          echo "PKG_CONFIG_PATH=/Library/Frameworks/GStreamer.framework/Versions/Current/lib/pkgconfig" >> $GITHUB_ENV
 
       - name: Configure CMake
         run: |
           mkdir -p $BUILD_DIR
           cmake -B $BUILD_DIR -S . \
             -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_PREFIX_PATH=$HOME/Qt/$QT_VERSION/macos
+            -DCMAKE_PREFIX_PATH="$HOME/Qt/$QT_VERSION/macos;/Library/Frameworks/GStreamer.framework/Versions/Current"
 
       - name: Build
         run: |
