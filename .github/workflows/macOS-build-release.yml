@@ -54,7 +54,11 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_PREFIX_PATH="$HOME/Qt/$QT_VERSION/macos/lib/cmake/Qt6:$(brew --prefix gstreamer):$(brew --prefix gst-plugins-base)" \
             -DQt6_DIR="$HOME/Qt/$QT_VERSION/macos/lib/cmake/Qt6"
-
+            
+      - name: Set up GStreamer pkg-config
+        run: |
+          export PKG_CONFIG_PATH="/Library/Frameworks/GStreamer.framework/Versions/Current/lib/pkgconfig:$PKG_CONFIG_PATH"
+          echo "PKG_CONFIG_PATH=$PKG_CONFIG_PATH" >> $GITHUB_ENV
 
       - name: Build
         run: |
