@@ -48,6 +48,10 @@ jobs:
           echo "CMAKE_PREFIX_PATH=/Library/Frameworks/GStreamer.framework/Versions/Current" >> $GITHUB_ENV
           echo "PKG_CONFIG_PATH=/Library/Frameworks/GStreamer.framework/Versions/Current/lib/pkgconfig" >> $GITHUB_ENV
 
+      - name: Set up GStreamer pkg-config
+        run: |
+          echo "PKG_CONFIG_PATH=/Library/Frameworks/GStreamer.framework/Versions/Current/lib/pkgconfig" >> $GITHUB_ENV
+          
       - name: Configure CMake
         run: |
           mkdir -p $BUILD_DIR
