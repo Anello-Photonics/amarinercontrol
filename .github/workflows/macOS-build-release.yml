@@ -42,15 +42,10 @@ jobs:
         run: |
           brew install gstreamer gst-plugins-base gst-plugins-good
 
-      - name: Set up pkg-config for GStreamer
+      - name: Install GStreamer.framework (official SDK)
         run: |
-          export PKG_CONFIG_PATH="$(brew --prefix gstreamer)/lib/pkgconfig:$(brew --prefix gst-plugins-base)/lib/pkgconfig:$PKG_CONFIG_PATH"
-          echo "PKG_CONFIG_PATH=$PKG_CONFIG_PATH" >> $GITHUB_ENV
-
-      - name: Symlink GStreamer.framework
-        run: |
-          sudo mkdir -p /Library/Frameworks
-          sudo ln -sfn $(brew --prefix gstreamer)/lib/GStreamer.framework /Library/Frameworks/GStreamer.framework || true
+          curl -L https://gstreamer.freedesktop.org/data/pkg/osx/1.24.7/gstreamer-1.0-devel-1.24.7-universal.pkg -o gstreamer.pkg
+          sudo installer -pkg gstreamer.pkg -target /
 
       - name: Configure CMake
         run: |
