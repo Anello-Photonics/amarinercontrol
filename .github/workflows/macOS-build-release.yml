@@ -46,20 +46,21 @@ jobs:
         run: |
           curl -L https://gstreamer.freedesktop.org/data/pkg/osx/1.26.6/gstreamer-1.0-devel-1.26.6-universal.pkg -o gstreamer.pkg
           sudo installer -pkg gstreamer.pkg -target /
+          
+      - name: Set up GStreamer pkg-config
+        run: |
+          export PKG_CONFIG_PATH="/Library/Frameworks/GStreamer.framework/Versions/Current/lib/pkgconfig:$PKG_CONFIG_PATH"
+          echo "PKG_CONFIG_PATH=$PKG_CONFIG_PATH" >> $GITHUB_ENV
 
       - name: Configure CMake
         run: |
           mkdir -p $BUILD_DIR
           cmake -B $BUILD_DIR -S . \
             -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_PREFIX_PATH="$HOME/Qt/$QT_VERSION/macos/lib/cmake/Qt6:$(brew --prefix gstreamer):$(brew --prefix gst-plugins-base)" \
-            -DQt6_DIR="$HOME/Qt/$QT_VERSION/macos/lib/cmake/Qt6"
+            -DCMAKE_PREFIX_PATH="$HOME/Qt/$QT_VERSION/macos/lib/cmake/Qt6;/Library/Frameworks/GStreamer.framework" \
+            -DQt6_DIR="$HOME/Qt/$QT_VERSION/macos/lib/cmake/Qt6" \
+            -DCMAKE_CXX_FLAGS="-I/Library/Frameworks/GStreamer.framework/Headers"
             
-      - name: Set up GStreamer pkg-config
-        run: |
-          export PKG_CONFIG_PATH="/Library/Frameworks/GStreamer.framework/Versions/Current/lib/pkgconfig:$PKG_CONFIG_PATH"
-          echo "PKG_CONFIG_PATH=$PKG_CONFIG_PATH" >> $GITHUB_ENV
-
       - name: Build
         run: |
           cmake --build $BUILD_DIR --config Release --parallel 2
