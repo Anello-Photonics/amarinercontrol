@@ -36,7 +36,7 @@ jobs:
         run: |
           python3 -m aqt install-qt mac desktop $QT_VERSION clang_64 \
             --outputdir $HOME/Qt \
-            --modules qtcharts qtquick3d qtmultimedia qtlocation qtserialport qtspeech qtwebengine qtpdf qt5compat qtdatavis3d qtsensors
+            --modules qtcharts qt3d qt5compat qtcharts qtconnectivity qtdatavis3d qtgraphs qtgrpc qthttpserver qtimageformats qtlanguageserver qtlocation qtlottie qtmultimedia qtnetworkauth qtpdf qtpositioning qtquick3d qtquick3dphysics qtquickeffectmaker qtquicktimeline qtremoteobjects qtscxml qtsensors qtserialbus qtserialport qtshadertools qtspeech qtvirtualkeyboard qtwebchannel qtwebengine qtwebsockets qtwebview
 
       - name: Configure CMake
         run: |
