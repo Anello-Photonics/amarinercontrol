@@ -47,6 +47,11 @@ jobs:
           export PKG_CONFIG_PATH="$(brew --prefix gstreamer)/lib/pkgconfig:$(brew --prefix gst-plugins-base)/lib/pkgconfig:$PKG_CONFIG_PATH"
           echo "PKG_CONFIG_PATH=$PKG_CONFIG_PATH" >> $GITHUB_ENV
           
+      - name: Symlink GStreamer.framework
+        run: |
+          sudo mkdir -p /Library/Frameworks
+          sudo ln -sfn $(brew --prefix gstreamer)/lib/GStreamer.framework /Library/Frameworks/GStreamer.framework || true
+    
       - name: Configure CMake
         run: |
           mkdir -p $BUILD_DIR
