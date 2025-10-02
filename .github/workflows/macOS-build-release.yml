@@ -38,28 +38,29 @@ jobs:
           --outputdir $HOME/Qt \
           --modules qt3d qt5compat qtcharts qtconnectivity qtdatavis3d qtgraphs qtgrpc qthttpserver qtimageformats qtlanguageserver qtlocation qtlottie qtmultimedia qtnetworkauth qtpdf qtpositioning qtquick3d qtquick3dphysics qtquickeffectmaker qtquicktimeline qtremoteobjects qtscxml qtsensors qtserialbus qtserialport qtshadertools qtspeech qtvirtualkeyboard qtwebchannel qtwebengine qtwebsockets qtwebview
 
+      # Install GStreamer (Homebrew)
       - name: Install GStreamer
         run: |
-          brew install gstreamer gst-plugins-base gst-plugins-good
+          brew install gstreamer gst-plugins-base gst-plugins-good gst-plugins-bad gst-libav
 
-      - name: Install GStreamer.framework (official SDK)
-        run: |
-          curl -L https://gstreamer.freedesktop.org/data/pkg/osx/1.26.6/gstreamer-1.0-devel-1.26.6-universal.pkg -o gstreamer.pkg
-          sudo installer -pkg gstreamer.pkg -target /
-          
+      # Set up pkg-config for Homebrew GStreamer
       - name: Set up GStreamer pkg-config
         run: |
-          export PKG_CONFIG_PATH="/Library/Frameworks/GStreamer.framework/Versions/Current/lib/pkgconfig:$PKG_CONFIG_PATH"
+          export PKG_CONFIG_PATH="$(brew --prefix gstreamer)/lib/pkgconfig:$(brew --prefix gst-plugins-base)/lib/pkgconfig:$PKG_CONFIG_PATH"
           echo "PKG_CONFIG_PATH=$PKG_CONFIG_PATH" >> $GITHUB_ENV
+          # Debug to confirm include paths are correct
+          pkg-config --cflags gstreamer-1.0
+          pkg-config --libs gstreamer-1.0
 
+      # Configure CMake
       - name: Configure CMake
         run: |
           mkdir -p $BUILD_DIR
           cmake -B $BUILD_DIR -S . \
             -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_PREFIX_PATH="$HOME/Qt/$QT_VERSION/macos/lib/cmake/Qt6;/Library/Frameworks/GStreamer.framework" \
-            -DQt6_DIR="$HOME/Qt/$QT_VERSION/macos/lib/cmake/Qt6" \
-            -DCMAKE_CXX_FLAGS="-I/Library/Frameworks/GStreamer.framework/Headers"
+            -DCMAKE_PREFIX_PATH="$HOME/Qt/$QT_VERSION/macos/lib/cmake/Qt6:$(brew --prefix gstreamer):$(brew --prefix gst-plugins-base)" \
+            -DQt6_DIR="$HOME/Qt/$QT_VERSION/macos/lib/cmake/Qt6"
+
             
       - name: Build
         run: |
