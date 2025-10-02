@@ -65,12 +65,13 @@ jobs:
             echo "❌ $APP_NAME not found!"
             exit 1
           fi
-          echo "Found app at $APP_PATH"
+          echo "✅ Found app at $APP_PATH"
           cd $(dirname "$APP_PATH")
           zip -r AMarinerControl-macOS.zip "$APP_NAME"
-          
-      - name: Upload artifact
+          mv AMarinerControl-macOS.zip $GITHUB_WORKSPACE/$BUILD_DIR/
+
+      - name: Upload macOS artifact
         uses: actions/upload-artifact@v4
         with:
           name: AMarinerControl-macOS
-          path: $BUILD_DIR/Release/AMarinerControl-macOS.zip
+          path: ${{ env.BUILD_DIR }}/AMarinerControl-macOS.zip
