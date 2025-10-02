@@ -59,11 +59,18 @@ jobs:
 
       - name: Package .app bundle
         run: |
-          cd $BUILD_DIR/Release
-          zip -r QGroundControl-macOS.zip QGroundControl.app
-
+          APP_NAME="AMarinerControl.app"
+          APP_PATH=$(find $BUILD_DIR -name "$APP_NAME" -type d | head -n 1)
+          if [ -z "$APP_PATH" ]; then
+            echo "❌ $APP_NAME not found!"
+            exit 1
+          fi
+          echo "Found app at $APP_PATH"
+          cd $(dirname "$APP_PATH")
+          zip -r AMarinerControl-macOS.zip "$APP_NAME"
+          
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: QGroundControl-macOS
-          path: $BUILD_DIR/Release/QGroundControl-macOS.zip
+          name: AMarinerControl-macOS
+          path: $BUILD_DIR/Release/AMarinerControl-macOS.zip
