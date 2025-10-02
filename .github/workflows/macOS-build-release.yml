@@ -57,42 +57,36 @@ jobs:
         run: |
           cmake --build $BUILD_DIR --config Release --parallel 2
 
-      - name: Package .app bundle
+      - name: Package macOS app
         run: |
           APP_NAME="AMarinerControl.app"
-          APP_PATH=$(find $BUILD_DIR -name "$APP_NAME" -type d | head -n 1)
-          if [ -z "$APP_PATH" ]; then
-            echo "❌ $APP_NAME not found!"
+          DMG_NAME="AMarinerControl-macOS.dmg"
+          BUILD_APP_DIR="$BUILD_DIR/$APP_NAME"
+
+          # Verify the .app exists
+          if [ ! -d "$BUILD_APP_DIR" ]; then
+            echo "❌ Could not find app at $BUILD_APP_DIR"
             exit 1
           fi
-          echo "✅ Found app at $APP_PATH"
-          ZIP_PATH="$BUILD_DIR/AMarinerControl-macOS.zip"
-          cd $(dirname "$APP_PATH")
-          zip -r "$ZIP_PATH" "$APP_NAME"
-          echo "✅ Created archive at $ZIP_PATH"
+          echo "✅ Found app at $BUILD_APP_DIR"
 
-      - name: Upload macOS artifact
+          # Create a temporary directory for the DMG contents
+          TEMP_DMG_DIR="$BUILD_DIR/dmg_temp"
+          mkdir -p "$TEMP_DMG_DIR"
+          cp -R "$BUILD_APP_DIR" "$TEMP_DMG_DIR/"
+
+          # Create DMG
+          hdiutil create \
+            -volname "AMarinerControl" \
+            -srcfolder "$TEMP_DMG_DIR" \
+            -ov \
+            -format UDZO \
+            "$BUILD_DIR/$DMG_NAME"
+
+          echo "✅ DMG created at $BUILD_DIR/$DMG_NAME"
+
+      - name: Upload DMG artifact
         uses: actions/upload-artifact@v4
         with:
           name: AMarinerControl-macOS
-          path: ${{ env.BUILD_DIR }}/AMarinerControl-macOS.zip
-
-      - name: Create DMG
-        run: |
-          APP_NAME="AMarinerControl.app"
-          APP_PATH=$(find $BUILD_DIR -name "$APP_NAME" -type d | head -n 1)
-          if [ -z "$APP_PATH" ]; then
-            echo "❌ $APP_NAME not found!"
-            exit 1
-          fi
-          DMG_PATH="$BUILD_DIR/AMarinerControl-macOS.dmg"
-          hdiutil create -volname "AMarinerControl" \
-            -srcfolder "$APP_PATH" \
-            -ov -format UDZO "$DMG_PATH"
-          echo "✅ Created DMG at $DMG_PATH"
-
-      - name: Upload macOS DMG
-        uses: actions/upload-artifact@v4
-        with:
-          name: AMarinerControl-macOS-dmg
-          path: ${{ env.BUILD_DIR }}/AMarinerControl-macOS.dmg
+          path: $BUILD_DIR/AMarinerControl-macOS.dmg
