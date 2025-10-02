@@ -1,0 +1,71 @@
+name: Build macOS Release
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+
+jobs:
+  build-macos:
+    runs-on: macos-latest
+
+    env:
+      QT_VERSION: 6.8.3
+      BUILD_DIR: build-macos
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          brew install p7zip
+          python3 -m pip install --upgrade pip setuptools wheel py7zr aqtinstall
+
+      - name: List available Qt modules
+        run: |
+          python3 -m aqt list-qt mac desktop --modules $QT_VERSION clang_64
+
+      - name: Install Qt
+        run: |
+          python3 -m aqt install-qt mac desktop $QT_VERSION clang_64 \
+          --outputdir $HOME/Qt \
+          --modules qt3d qt5compat qtcharts qtconnectivity qtdatavis3d qtgraphs qtgrpc qthttpserver qtimageformats qtlanguageserver qtlocation qtlottie qtmultimedia qtnetworkauth qtpdf qtpositioning qtquick3d qtquick3dphysics qtquickeffectmaker qtquicktimeline qtremoteobjects qtscxml qtsensors qtserialbus qtserialport qtshadertools qtspeech qtvirtualkeyboard qtwebchannel qtwebengine qtwebsockets qtwebview
+
+      - name: Install GStreamer Frameworks
+        run: |
+          curl -L https://gstreamer.freedesktop.org/data/pkg/osx/1.26.6/gstreamer-1.0-devel-1.26.6-universal.pkg -o gstreamer.pkg
+          sudo installer -pkg gstreamer.pkg -target /
+
+      - name: Install QGC build dependencies
+        run: |
+          brew install cmake ninja
+
+      - name: Configure CMake
+        run: |
+          mkdir -p $BUILD_DIR
+          cmake -B $BUILD_DIR -S . \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_PREFIX_PATH="$HOME/Qt/$QT_VERSION/macos/lib/cmake/Qt6" \
+            -DQt6_DIR="$HOME/Qt/$QT_VERSION/macos/lib/cmake/Qt6"
+            
+      - name: Build
+        run: |
+          cmake --build $BUILD_DIR --config Release --parallel 2
+
+      - name: Package .app bundle
+        run: |
+          cd $BUILD_DIR/Release
+          zip -r QGroundControl-macOS.zip QGroundControl.app
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: QGroundControl-macOS
+          path: $BUILD_DIR/Release/QGroundControl-macOS.zip

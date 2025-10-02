@@ -198,14 +198,6 @@ elseif(ANDROID)
     include(Android)
 endif()
 
-set(CMAKE_AUTOMOC ON) # only for QGC targets
-
-# Disable AUTOMOC for 3rd party libs
-set_target_properties(GeographicLib_STATIC PROPERTIES AUTOMOC OFF)
-set_target_properties(shp PROPERTIES AUTOMOC OFF)
-set_target_properties(ulog_cpp PROPERTIES AUTOMOC OFF)
-set_target_properties(zlibstatic PROPERTIES AUTOMOC OFF)
-
 
 qt_add_qml_module(${CMAKE_PROJECT_NAME}
     URI QGC
@@ -248,3 +240,11 @@ qt_import_plugins(${CMAKE_PROJECT_NAME}
 include(Install)
 
 include(PrintSummary)
+
+set(CMAKE_AUTOMOC ON) # only for QGC targets
+
+# Disable AUTOMOC for 3rd party libs
+set_target_properties(GeographicLib_STATIC PROPERTIES AUTOMOC OFF)
+set_target_properties(shp PROPERTIES AUTOMOC OFF)
+set_target_properties(ulog_cpp PROPERTIES AUTOMOC OFF)
+set_target_properties(zlibstatic PROPERTIES AUTOMOC OFF)
