@@ -40,7 +40,7 @@ jobs:
 
       - name: Install GStreamer Frameworks
         run: |
-          curl -L https://gstreamer.freedesktop.org/data/pkg/osx/1.24.7/gstreamer-1.0-devel-1.24.7-universal.pkg -o gstreamer.pkg
+          curl -L https://gstreamer.freedesktop.org/data/pkg/osx/1.26.6/gstreamer-1.0-devel-1.26.6-universal.pkg -o gstreamer.pkg
           sudo installer -pkg gstreamer.pkg -target /
 
       - name: Install QGC build dependencies
