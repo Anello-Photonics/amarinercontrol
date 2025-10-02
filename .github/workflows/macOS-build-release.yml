@@ -66,9 +66,10 @@ jobs:
             exit 1
           fi
           echo "✅ Found app at $APP_PATH"
+          ZIP_PATH="$BUILD_DIR/AMarinerControl-macOS.zip"
           cd $(dirname "$APP_PATH")
-          zip -r AMarinerControl-macOS.zip "$APP_NAME"
-          mv AMarinerControl-macOS.zip $GITHUB_WORKSPACE/$BUILD_DIR/
+          zip -r "$ZIP_PATH" "$APP_NAME"
+          echo "✅ Created archive at $ZIP_PATH"
 
       - name: Upload macOS artifact
         uses: actions/upload-artifact@v4
