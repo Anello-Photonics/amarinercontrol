@@ -2,66 +2,48 @@ name: Windows NSIS Installer
 
 on:
   push:
-    branches:
-      - master
-      - 'Stable*'
-    tags:
-      - 'v*'
-    paths-ignore:
-      - 'docs/**'
+    branches: [ main ]
   pull_request:
-    paths:
-      - '.github/workflows/windowsNSIS.yml'
-      - 'deploy/windows/**'
-      - 'src/**'
-      - 'CMakeLists.txt'
-      - 'cmake/**'
+    branches: [ main ]
 
 jobs:
-  build-installer:
+  build-windows:
     runs-on: windows-latest
-    defaults:
-      run:
-        shell: powershell
 
     steps:
-      # Checkout repository
-      - name: Checkout Repository
+      - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Install Qt (MSVC 64-bit)
+        uses: jurplel/install-qt-action@v3
         with:
-          submodules: recursive
-          fetch-depth: 1
-          fetch-tags: true
+          version: 6.8.3
+          host: windows
+          target: desktop
+          arch: win64_msvc2019_64
+          cache: true
 
-      # Install dependencies
-      - name: Install NSIS
-        run: choco install nsis -y
+      - name: Set up MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
 
-      - name: Install CMake
-        run: choco install cmake --installargs 'ADD_CMAKE_TO_PATH=System' -y
-
-      - name: Install Ninja
-        run: choco install ninja -y
-
-      # Configure and build project
-      - name: Configure Project
+      - name: Configure CMake
         run: |
-          if (Test-Path CMakeCache.txt) { Remove-Item CMakeCache.txt -Force }
-          if (Test-Path CMakeFiles) { Remove-Item CMakeFiles -Recurse -Force }
           mkdir build
           cd build
-          cmake .. -G "Ninja" -DCMAKE_BUILD_TYPE=Release
+          cmake -G "Ninja" -DCMAKE_BUILD_TYPE=Release ..
 
-      - name: Build Project
+      - name: Build
         run: |
           cd build
-          cmake --build . --config Release --parallel
+          cmake --build . --config Release
 
-      # Build NSIS installer
-      - name: Build Windows Installer
+      - name: Run NSIS
         run: |
-          & "C:\Program Files (x86)\NSIS\makensis.exe" deploy/windows/QGroundControlInstaller.nsi
+          "C:\Program Files (x86)\NSIS\makensis.exe" deploy/windows/QGroundControlInstaller.nsi
 
+          
       # Upload installer artifact (grabs any exe in deploy/windows)
       - name: Upload Installer
         uses: actions/upload-artifact@v4
