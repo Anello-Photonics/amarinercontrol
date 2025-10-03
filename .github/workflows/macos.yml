@@ -71,9 +71,13 @@ jobs:
       #     p12-password: ${{ secrets.MACOS_SIGNING_CERTS_PASS }}
 
       - name: Configure
-        working-directory: ${{ runner.temp }}/build
-        run: ${{ env.QT_ROOT_DIR }}/bin/qt-cmake -S ${{ github.workspace }} -B . -G Ninja \
-              -DCMAKE_BUILD_TYPE=${{ matrix.BuildType }}
+        run: |
+          mkdir -p ${{ runner.temp }}/build
+          ${{ env.QT_ROOT_DIR }}/bin/qt-cmake \
+            -S ${{ github.workspace }} \
+            -B ${{ runner.temp }}/build \
+            -G Ninja \
+            -DCMAKE_BUILD_TYPE=${{ matrix.BuildType }}
 
       - name: Build
         working-directory: ${{ runner.temp }}/build
