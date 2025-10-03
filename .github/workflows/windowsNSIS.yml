@@ -1,4 +1,4 @@
-name: Windows Installer
+name: Windows NSIS Installer
 
 on:
   push:
@@ -11,6 +11,7 @@ on:
       - 'docs/**'
   pull_request:
     paths:
+      - '.github/workflows/windowsNSIS.yml'
       - 'deploy/windows/**'
       - 'src/**'
       - 'CMakeLists.txt'
@@ -19,36 +20,49 @@ on:
 jobs:
   build-installer:
     runs-on: windows-latest
-
-    env:
-      APP_NAME: AMarinerControl
-      BUILD_DIR: ${{ github.workspace }}/build-windows
+    defaults:
+      run:
+        shell: powershell
 
     steps:
-      - name: Checkout repository
+      # Checkout repository
+      - name: Checkout Repository
         uses: actions/checkout@v4
-
-      - name: Setup NSIS
-        uses: burnett/NSIS-action@v1
         with:
-          nsis-version: latest
+          submodules: recursive
+          fetch-depth: 1
+          fetch-tags: true
 
-      - name: Build project
-        shell: pwsh
+      # Install dependencies
+      - name: Install NSIS
+        run: choco install nsis -y
+
+      - name: Install CMake
+        run: choco install cmake --installargs 'ADD_CMAKE_TO_PATH=System' -y
+
+      - name: Install Ninja
+        run: choco install ninja -y
+
+      # Configure and build project
+      - name: Configure Project
         run: |
-          mkdir -Force $env:BUILD_DIR
-          # Adjust your build command if using CMake
-          cmake -S . -B $env:BUILD_DIR -DCMAKE_BUILD_TYPE=Release
-          cmake --build $env:BUILD_DIR --config Release
+          mkdir build
+          cd build
+          cmake .. -G "Ninja" -DCMAKE_BUILD_TYPE=Release
 
-      - name: Create Windows Installer
-        shell: pwsh
+      - name: Build Project
         run: |
-          Write-Host "Building NSIS installer..."
-          & "C:\Program Files (x86)\NSIS\makensis.exe" "$PWD\deploy\windows\QGroundControlInstaller.nsi"
+          cd build
+          cmake --build . --config Release --parallel
 
+      # Build NSIS installer
+      - name: Build Windows Installer
+        run: |
+          & "C:\Program Files (x86)\NSIS\makensis.exe" deploy/windows/QGroundControlInstaller.nsi
+
+      # Upload installer artifact (grabs any exe in deploy/windows)
       - name: Upload Installer
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.APP_NAME }}-Windows-Installer
-          path: "$PWD/deploy/windows/Output/${{ env.APP_NAME }}Installer.exe"
+          name: AMarinerControl-Installer
+          path: deploy/windows/*.exe
