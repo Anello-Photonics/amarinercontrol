@@ -42,19 +42,14 @@ endif()
 #######################################################
 
 if(APPLE)
+    # Target macOS 12.0 minimum
     set(CMAKE_OSX_DEPLOYMENT_TARGET "12.0")
-    # set(CMAKE_OSX_SYSROOT "iphoneos")
+
     if(QGC_MACOS_UNIVERSAL_BUILD)
         set(CMAKE_OSX_ARCHITECTURES "x86_64;arm64")
     endif()
-    # Explicitly remove AGL and weak-link OpenGL
-    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-undefined,dynamic_lookup -Wl,-weak_framework,AGL -Wl,-weak_framework,OpenGL")
-
-    find_library(COCOA_LIBRARY Cocoa REQUIRED)
-    find_library(METAL_LIBRARY Metal REQUIRED)
-
-    target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE ${COCOA_LIBRARY} ${METAL_LIBRARY})
 endif()
+
 
 include(Git)
 
@@ -140,7 +135,6 @@ find_package(Qt6
     OPTIONAL_COMPONENTS
         Bluetooth
         MultimediaQuickPrivate
-        OpenGL
         Quick3D
         SerialPort
         Test
@@ -201,6 +195,19 @@ if(WIN32)
     include(Windows)
 elseif(APPLE)
     include(Apple)
+    # Remove any reference to AGL
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-undefined,dynamic_lookup")
+
+    # Find frameworks
+    find_library(COCOA_LIBRARY Cocoa REQUIRED)
+    find_library(METAL_LIBRARY Metal REQUIRED)
+
+    # Only find OpenGL if needed
+    # find_package(OpenGL)  # Uncomment if your app uses OpenGL / QOpenGLWidget
+    # target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE OpenGL::GL)
+
+    # Link main frameworks
+    target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE ${COCOA_LIBRARY} ${METAL_LIBRARY})
 elseif(ANDROID)
     include(Android)
 endif()
