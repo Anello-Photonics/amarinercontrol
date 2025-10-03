@@ -135,3 +135,10 @@ jobs:
           aws_distribution_id: ${{ secrets.AWS_DISTRIBUTION_ID }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
           upload_aws: ${{ matrix.arch == 'win64_msvc2022_arm64_cross_compiled' && false || true }}
+            # Upload installer artifact (grabs any exe in deploy/windows)
+            
+      - name: Upload Installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: AMarinerControl-Installer
+          path: deploy/windows/*.exe
