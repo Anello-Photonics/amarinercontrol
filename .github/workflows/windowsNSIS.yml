@@ -2,9 +2,21 @@ name: Windows NSIS Installer
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - master
+      - Stable*
+    tags:
+      - v*
+    paths-ignore:
+      - docs/**
   pull_request:
-    branches: [ main ]
+    paths:
+      - .github/workflows/windows.yml
+      - deploy/windows/**
+      - src/**
+      - CMakeLists.txt
+      - cmake/**
+      - tools/setup/*windows*
 
 jobs:
   build-windows:
