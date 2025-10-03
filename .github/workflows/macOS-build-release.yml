@@ -95,4 +95,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: AMarinerControl-macOS
-          path: build-macos/AMarinerControl-macOS.app
+          path: build-macos/AMarinerControl.app
