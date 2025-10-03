@@ -95,3 +95,9 @@ jobs:
         with:
           name: AMarinerControl-macOS
           path: build-macos/AMarinerControl-macOS.dmg
+
+      - name: Upload APP artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: AMarinerControl-macOS
+          path: build-macos/AMarinerControl-macOS.app
