@@ -28,11 +28,11 @@ jobs:
         with:
           arch: x64
 
-      - name: Configure CMake
+      - name: Configure CMake (MSVC)
         run: |
           mkdir build
           cd build
-          cmake -G "Ninja" -DCMAKE_BUILD_TYPE=Release ..
+          cmake -G "Ninja" -A x64 -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="${{ env.Qt6_DIR }}" ..
 
       - name: Build
         run: |
@@ -42,7 +42,6 @@ jobs:
       - name: Run NSIS
         run: |
           "C:\Program Files (x86)\NSIS\makensis.exe" deploy/windows/QGroundControlInstaller.nsi
-
           
       # Upload installer artifact (grabs any exe in deploy/windows)
       - name: Upload Installer
