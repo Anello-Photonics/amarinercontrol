@@ -195,18 +195,8 @@ if(WIN32)
     include(Windows)
 elseif(APPLE)
     include(Apple)
-    # Remove any reference to AGL
-    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-undefined,dynamic_lookup")
-
-    # Find frameworks
     find_library(COCOA_LIBRARY Cocoa REQUIRED)
     find_library(METAL_LIBRARY Metal REQUIRED)
-
-    # Only find OpenGL if needed
-    # find_package(OpenGL)  # Uncomment if your app uses OpenGL / QOpenGLWidget
-    # target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE OpenGL::GL)
-
-    # Link main frameworks
     target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE ${COCOA_LIBRARY} ${METAL_LIBRARY})
 elseif(ANDROID)
     include(Android)
