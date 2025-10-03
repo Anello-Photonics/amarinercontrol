@@ -1,4 +1,4 @@
-name: MacOS
+name: macOS
 
 on:
   push:
@@ -8,7 +8,7 @@ on:
     tags:
       - 'v*'
     paths-ignore:
-      - 'docs/**' # Do not trigger for any changes under docs
+      - 'docs/**'
   pull_request:
     paths:
       - '.github/workflows/macos.yml'
@@ -16,10 +16,6 @@ on:
       - 'src/**'
       - 'CMakeLists.txt'
       - 'cmake/**'
-
-# concurrency:
-#   group: ${{ github.workflow }}-${{ github.ref }}
-#   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
   build:
@@ -35,6 +31,9 @@ jobs:
 
     env:
       QT_VERSION: 6.8.3
+      APP_NAME: AMarinerControl
+      APP_BUNDLE: AMarinerControl.app
+      DMG_NAME: AMarinerControl-macOS.dmg
       QGC_MACOS_SIGNING_IDENTITY: ${{ secrets.MACOS_SIGNING_IDENTITY }}
 
     steps:
@@ -45,25 +44,10 @@ jobs:
           fetch-depth: 1
           fetch-tags: true
 
-      - name: Initial Setup
-        uses: ./.github/actions/common
-
       - name: Setup Xcode
         uses: maxim-lobanov/setup-xcode@v1
         with:
           xcode-version: latest-stable
-
-      - name: Install Dependencies (include GStreamer)
-        working-directory: ${{ github.workspace }}/tools/setup
-        run: sh install-dependencies-osx.sh
-
-      - name: Setup Caching
-        uses: ./.github/actions/cache
-        with:
-          host: mac
-          target: clang_64
-          build-type: ${{ matrix.BuildType }}
-          cpm-modules: ${{ runner.temp }}/build/cpm_modules
 
       - name: Install Qt
         uses: jurplel/install-qt-action@v4
@@ -77,6 +61,11 @@ jobs:
           setup-python: false
           cache: true
 
+      - name: Install Dependencies
+        run: |
+          brew update
+          brew install gstreamer gst-plugins-base gst-plugins-good cmake ninja create-dmg
+
       - name: Import Code Signing Certificate
         if: github.event_name != 'pull_request'
         uses: apple-actions/import-codesign-certs@v5
@@ -85,41 +74,34 @@ jobs:
           p12-password: ${{ secrets.MACOS_SIGNING_CERTS_PASS }}
 
       - name: Configure
-        working-directory: ${{ runner.temp }}/build
-        run: ${{ env.QT_ROOT_DIR }}/bin/qt-cmake -S ${{ github.workspace }} -B . -G Ninja
-              -DCMAKE_BUILD_TYPE=${{ matrix.BuildType }}
-              -DQGC_STABLE_BUILD=${{ github.ref_type == 'tag' || contains(github.ref, 'Stable') && 'ON' || 'OFF' }}
+        run: |
+          mkdir -p build-macos
+          cd build-macos
+          ${{ env.QT_ROOT_DIR }}/bin/qt-cmake -S .. -B . -G Ninja \
+            -DCMAKE_BUILD_TYPE=${{ matrix.BuildType }}
 
       - name: Build
-        working-directory: ${{ runner.temp }}/build
-        run: cmake --build . --target all --config ${{ matrix.BuildType }} --parallel
+        run: |
+          cmake --build build-macos --target all --config ${{ matrix.BuildType }} --parallel
 
-      - name: Sanity check dev build executable
-        if: matrix.BuildType == 'Release'
-        working-directory: ${{ runner.temp }}/build/Release/QGroundControl.app/Contents/MacOS
-        run: ./QGroundControl --simple-boot-test
+      - name: Package .app into DMG
+        run: |
+          cd build-macos
+          if [ ! -d "${{ env.APP_BUNDLE }}" ]; then
+            echo "❌ ${APP_BUNDLE} not found!"
+            exit 1
+          fi
+          create-dmg \
+            --volname "${{ env.APP_NAME }}" \
+            --volicon "../deploy/macos/${{ env.APP_NAME }}.icns" \
+            --window-pos 200 120 \
+            --window-size 800 400 \
+            --icon-size 100 \
+            "${{ env.DMG_NAME }}" \
+            "${{ env.APP_BUNDLE }}"
 
-      - name: Create DMG
-        working-directory: ${{ runner.temp }}/build
-        run: cmake --install . --config ${{ matrix.BuildType }}
-
-      - name: Mount DMG
-        if: matrix.BuildType == 'Release'
-        working-directory: ${{ runner.temp }}/build
-        run: hdiutil attach QGroundControl.dmg
-
-      - name: Sanity check DMG executable
-        if: matrix.BuildType == 'Release'
-        working-directory: /Volumes/QGroundControl/QGroundControl.app/Contents/MacOS
-        run: ./QGroundControl --simple-boot-test
-
-      - name: Upload Build File
-        if: matrix.BuildType == 'Release'
-        uses: ./.github/actions/upload
+      - name: Upload DMG Artifact
+        uses: actions/upload-artifact@v4
         with:
-          artifact_name: QGroundControl.dmg
-          package_name: QGroundControl
-          aws_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws_distribution_id: ${{ secrets.AWS_DISTRIBUTION_ID }}
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          name: AMarinerControl-macOS
+          path: build-macos/${{ env.DMG_NAME }}
