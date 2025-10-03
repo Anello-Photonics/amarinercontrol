@@ -140,6 +140,7 @@ find_package(Qt6
     OPTIONAL_COMPONENTS
         Bluetooth
         MultimediaQuickPrivate
+        OpenGL
         Quick3D
         SerialPort
         Test
