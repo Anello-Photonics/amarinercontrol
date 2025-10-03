@@ -35,6 +35,10 @@ Section "Install"
     ; Rename executable after copying
     Rename "$INSTDIR\QGroundControl.exe" "$INSTDIR\AMarinerControl.exe"
 
+    ; Copy icon into installation directory
+    SetOutPath "$INSTDIR"
+    File "ANELLO.ico"
+
     ; Desktop shortcut with custom icon
     CreateShortcut "$DESKTOP\AMarinerControl.lnk" "$INSTDIR\AMarinerControl.exe" "" "$INSTDIR\ANELLO.ico"
 
