@@ -46,6 +46,8 @@ jobs:
       # Configure and build project
       - name: Configure Project
         run: |
+          if (Test-Path CMakeCache.txt) { Remove-Item CMakeCache.txt -Force }
+          if (Test-Path CMakeFiles) { Remove-Item CMakeFiles -Recurse -Force }
           mkdir build
           cd build
           cmake .. -G "Ninja" -DCMAKE_BUILD_TYPE=Release
