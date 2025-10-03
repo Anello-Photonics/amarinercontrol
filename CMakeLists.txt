@@ -133,7 +133,6 @@ find_package(Qt6
     OPTIONAL_COMPONENTS
         Bluetooth
         MultimediaQuickPrivate
-        OpenGL
         Quick3D
         SerialPort
         Test
@@ -248,13 +247,3 @@ set_target_properties(GeographicLib_STATIC PROPERTIES AUTOMOC OFF)
 set_target_properties(shp PROPERTIES AUTOMOC OFF)
 set_target_properties(ulog_cpp PROPERTIES AUTOMOC OFF)
 set_target_properties(zlibstatic PROPERTIES AUTOMOC OFF)
-
-# Remove AGL from frameworks if it gets injected by Qt or other deps
-if(APPLE)
-    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-framework,OpenGL")
-    # Explicitly prevent AGL
-    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-undefined,dynamic_lookup")
-    find_library(COCOA_LIBRARY Cocoa)
-    find_library(OPENGL_LIBRARY OpenGL)
-    target_link_libraries(AMarinerControl PRIVATE ${COCOA_LIBRARY} ${OPENGL_LIBRARY})
-endif()
