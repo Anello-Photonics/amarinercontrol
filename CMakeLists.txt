@@ -47,6 +47,13 @@ if(APPLE)
     if(QGC_MACOS_UNIVERSAL_BUILD)
         set(CMAKE_OSX_ARCHITECTURES "x86_64;arm64")
     endif()
+    # Explicitly remove AGL and weak-link OpenGL
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-undefined,dynamic_lookup -Wl,-weak_framework,AGL -Wl,-weak_framework,OpenGL")
+
+    find_library(COCOA_LIBRARY Cocoa REQUIRED)
+    find_library(METAL_LIBRARY Metal REQUIRED)
+
+    target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE ${COCOA_LIBRARY} ${METAL_LIBRARY})
 endif()
 
 include(Git)
