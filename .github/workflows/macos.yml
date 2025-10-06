@@ -41,7 +41,6 @@ jobs:
           fetch-depth: 1
           fetch-tags: true
 
-
       - name: Install Dependencies (include GStreamer)
         run: |
           brew update
@@ -78,6 +77,26 @@ jobs:
       - name: Build
         working-directory: ${{ runner.temp }}/build
         run: cmake --build . --target all --config ${{ matrix.BuildType }} --parallel
+
+      # ✅ New Step: Run macdeployqt to include Qt frameworks
+      - name: Deploy Qt frameworks
+        working-directory: ${{ runner.temp }}/build/${{ matrix.BuildType }}
+        run: |
+          QT_BIN_DIR="${{ runner.temp }}/Qt/${{ env.QT_VERSION }}/clang_64/bin"
+          APP_PATH="${{ env.APP_NAME }}.app"
+
+          echo "Running macdeployqt..."
+          "$QT_BIN_DIR/macdeployqt" "$APP_PATH" -verbose=2
+          echo "✅ macdeployqt finished successfully"
+
+      # (Optional) Verify the frameworks and library links
+      - name: Verify Qt frameworks in app
+        working-directory: ${{ runner.temp }}/build/${{ matrix.BuildType }}
+        run: |
+          echo "Listing bundled frameworks:"
+          ls -la "${{ env.APP_NAME }}.app/Contents/Frameworks"
+          echo "Checking library dependencies:"
+          otool -L "${{ env.APP_NAME }}.app/Contents/MacOS/${{ env.APP_NAME }}"
 
       - name: Package .app
         working-directory: ${{ runner.temp }}/build/${{ matrix.BuildType }}
