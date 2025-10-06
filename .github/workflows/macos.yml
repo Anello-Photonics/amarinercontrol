@@ -82,10 +82,10 @@ jobs:
       - name: Deploy Qt frameworks
         working-directory: ${{ runner.temp }}/build/${{ matrix.BuildType }}
         run: |
-          QT_BIN_DIR="${{ runner.temp }}/Qt/${{ env.QT_VERSION }}/clang_64/bin"
+          QT_BIN_DIR="${{ env.QT_ROOT_DIR }}/bin"
           APP_PATH="${{ env.APP_NAME }}.app"
 
-          echo "Running macdeployqt..."
+          echo "Running macdeployqt from $QT_BIN_DIR..."
           "$QT_BIN_DIR/macdeployqt" "$APP_PATH" -verbose=2
           echo "✅ macdeployqt finished successfully"
 
