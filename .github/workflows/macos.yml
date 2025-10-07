@@ -54,16 +54,9 @@ jobs:
           target: desktop
           arch: clang_64
           dir: ${{ runner.temp }}
-          modules: qtcharts qtlocation qtpositioning qtspeech qt5compat qtmultimedia qtserialport qtimageformats qtshadertools qtconnectivity qtquick3d qtsensors
+          modules: qtbase qtdeclarative qtquickcontrols2 qtquick3d qtmultimedia qtshadertools qtcharts qtlocation qtpositioning qtspeech qtserialport qtimageformats qtconnectivity qtsensors qt5compat
           setup-python: false
           cache: true
-
-      # - name: Import Code Signing Certificate
-      #   if: github.event_name != 'pull_request'
-      #   uses: apple-actions/import-codesign-certs@v5
-      #   with:
-      #     p12-file-base64: ${{ secrets.MACOS_SIGNING_CERTS_P12 }}
-      #     p12-password: ${{ secrets.MACOS_SIGNING_CERTS_PASS }}
 
       - name: Configure
         run: |
@@ -78,24 +71,18 @@ jobs:
         working-directory: ${{ runner.temp }}/build
         run: cmake --build . --target all --config ${{ matrix.BuildType }} --parallel
 
-      # ✅ New Step: Run macdeployqt to include Qt frameworks
-      - name: Deploy Qt frameworks and QML modules
+      - name: Deploy Qt Frameworks and QML
         working-directory: ${{ runner.temp }}/build/${{ matrix.BuildType }}
         run: |
           QT_BIN_DIR="${{ env.QT_ROOT_DIR }}/bin"
           APP_PATH="${{ env.APP_NAME }}.app"
-          QML_DIR="${{ github.workspace }}/src"  # adjust if your QML files are in a subfolder
 
-          echo "Running macdeployqt with QML directory $QML_DIR ..."
-          "$QT_BIN_DIR/macdeployqt" "$APP_PATH" -qmldir="$QML_DIR" -verbose=2
+          echo "Running macdeployqt..."
+          "$QT_BIN_DIR/macdeployqt" "$APP_PATH" \
+            -qmldir="${{ github.workspace }}/src" \
+            -verbose=2
 
-          echo "Manually copying missing QtQuick3D plugin if needed..."
-          QT_QML_PATH="${{ env.QT_ROOT_DIR }}/qml"
-          PLUGINS_DEST="$APP_PATH/Contents/PlugIns/qml"
-          mkdir -p "$PLUGINS_DEST/QtQuick3D"
-          cp -R "$QT_QML_PATH/QtQuick3D" "$PLUGINS_DEST/" || echo "⚠️ QtQuick3D not found, continuing"
-
-          echo "✅ macdeployqt (with QML + QtQuick3D) finished successfully"
+          echo "✅ macdeployqt finished successfully"
 
       - name: Ensure QtQuick3D is bundled
         run: |
