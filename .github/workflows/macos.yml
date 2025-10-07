@@ -79,15 +79,17 @@ jobs:
         run: cmake --build . --target all --config ${{ matrix.BuildType }} --parallel
 
       # ✅ New Step: Run macdeployqt to include Qt frameworks
-      - name: Deploy Qt frameworks
+      - name: Deploy Qt frameworks and QML modules
         working-directory: ${{ runner.temp }}/build/${{ matrix.BuildType }}
         run: |
           QT_BIN_DIR="${{ env.QT_ROOT_DIR }}/bin"
           APP_PATH="${{ env.APP_NAME }}.app"
+          QML_DIR="${{ github.workspace }}/src"  # or wherever your .qml files live
 
-          echo "Running macdeployqt from $QT_BIN_DIR..."
-          "$QT_BIN_DIR/macdeployqt" "$APP_PATH" -verbose=2
-          echo "✅ macdeployqt finished successfully"
+          echo "Running macdeployqt with QML directory $QML_DIR ..."
+          "$QT_BIN_DIR/macdeployqt" "$APP_PATH" -qmldir="$QML_DIR" -verbose=2
+          echo "✅ macdeployqt (with QML) finished successfully"
+
 
       # (Optional) Verify the frameworks and library links
       - name: Verify Qt frameworks in app
