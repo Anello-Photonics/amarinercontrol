@@ -84,11 +84,18 @@ jobs:
         run: |
           QT_BIN_DIR="${{ env.QT_ROOT_DIR }}/bin"
           APP_PATH="${{ env.APP_NAME }}.app"
-          QML_DIR="${{ github.workspace }}/src"  # or wherever your .qml files live
+          QML_DIR="${{ github.workspace }}/src"  # adjust if your QML files are in a subfolder
 
           echo "Running macdeployqt with QML directory $QML_DIR ..."
           "$QT_BIN_DIR/macdeployqt" "$APP_PATH" -qmldir="$QML_DIR" -verbose=2
-          echo "✅ macdeployqt (with QML) finished successfully"
+
+          echo "Manually copying missing QtQuick3D plugin if needed..."
+          QT_QML_PATH="${{ env.QT_ROOT_DIR }}/qml"
+          PLUGINS_DEST="$APP_PATH/Contents/PlugIns/qml"
+          mkdir -p "$PLUGINS_DEST/QtQuick3D"
+          cp -R "$QT_QML_PATH/QtQuick3D" "$PLUGINS_DEST/" || echo "⚠️ QtQuick3D not found, continuing"
+
+          echo "✅ macdeployqt (with QML + QtQuick3D) finished successfully"
 
 
       # (Optional) Verify the frameworks and library links
