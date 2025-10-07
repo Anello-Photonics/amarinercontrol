@@ -97,6 +97,14 @@ jobs:
 
           echo "✅ macdeployqt (with QML + QtQuick3D) finished successfully"
 
+      - name: Ensure QtQuick3D is bundled
+        run: |
+          QT_DIR="/Users/runner/hostedtoolcache/Qt/6.5.3/macos"
+          APP_QML_DIR="build/AMarinerControl.app/Contents/Resources/qml"
+          mkdir -p "$APP_QML_DIR"
+          cp -R "$QT_DIR/qml/QtQuick3D" "$APP_QML_DIR/" || true
+          cp -R "$QT_DIR/qml/QtQuick" "$APP_QML_DIR/" || true
+          cp -R "$QT_DIR/qml/QtQuick.Controls" "$APP_QML_DIR/" || true
 
       # (Optional) Verify the frameworks and library links
       - name: Verify Qt frameworks in app
