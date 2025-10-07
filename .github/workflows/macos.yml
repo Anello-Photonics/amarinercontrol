@@ -71,19 +71,30 @@ jobs:
         working-directory: ${{ runner.temp }}/build
         run: cmake --build . --target all --config ${{ matrix.BuildType }} --parallel
 
-      - name: Deploy Qt Frameworks and QML
-        working-directory: ${{ runner.temp }}/build/${{ matrix.BuildType }}
+      - name: Copy QML Modules into App Bundle
         run: |
-          QT_BIN_DIR="${{ env.QT_ROOT_DIR }}/bin"
-          APP_PATH="${{ env.APP_NAME }}.app"
+          QT_DIR="${{ runner.temp }}/Qt/${{ env.QT_VERSION }}/clang_64"
+          APP_BUNDLE="build/AMarinerControl.app"
 
-          echo "Running macdeployqt..."
-          "$QT_BIN_DIR/macdeployqt" "$APP_PATH" \
-            -qmldir="${{ github.workspace }}/src" \
-            -verbose=2
+          # Copy QtQuick3D and other QML folders
+          mkdir -p "$APP_BUNDLE/Contents/Resources/qml"
+          cp -r "$QT_DIR/qml/QtQuick3D" "$APP_BUNDLE/Contents/Resources/qml/"
+          cp -r "$QT_DIR/qml/QtQuick" "$APP_BUNDLE/Contents/Resources/qml/"
+          cp -r "$QT_DIR/qml/QtQuick.Controls" "$APP_BUNDLE/Contents/Resources/qml/"
 
-          echo "✅ macdeployqt finished successfully"
+          # Copy your app's QML folders (e.g., MainWindow, UI, subfolders)
+          cp -r src/UI "$APP_BUNDLE/Contents/Resources/qml/"
+          cp -r src/SomeOtherQMLFolder "$APP_BUNDLE/Contents/Resources/qml/"
 
+      - name: Set QML Import Path
+        run: |
+          export QML2_IMPORT_PATH="build/AMarinerControl.app/Contents/Resources/qml"
+          echo "QML2_IMPORT_PATH=$QML2_IMPORT_PATH" >> $GITHUB_ENV
+
+      - name: Run App (Test)
+        run: |
+          ./build/AMarinerControl.app/Contents/MacOS/AMarinerControl --noqmlcache
+          
       - name: Ensure QtQuick3D is bundled
         run: |
           QT_DIR="/Users/runner/hostedtoolcache/Qt/6.8.3/macos"
