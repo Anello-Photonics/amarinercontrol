@@ -54,7 +54,7 @@ jobs:
           target: desktop
           arch: clang_64
           dir: ${{ runner.temp }}
-          modules: qtbase qtdeclarative qtquickcontrols2 qtquick3d qtmultimedia qtshadertools qtcharts qtlocation qtpositioning qtspeech qtserialport qtimageformats qtconnectivity qtsensors qt5compat
+          modules: qtquick3d qtmultimedia qtshadertools qtcharts qtlocation qtpositioning qtspeech qtserialport qtimageformats qtconnectivity qtsensors qt5compat
           setup-python: true
           cache: true
 
