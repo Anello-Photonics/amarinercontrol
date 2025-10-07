@@ -70,6 +70,7 @@ jobs:
 
       - name: Build app with CMake
         run: |
+          rm -rf build        # Remove old cache/build files
           mkdir -p build
           cd build
           cmake .. -DCMAKE_PREFIX_PATH=$QT_DIR
