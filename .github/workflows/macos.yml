@@ -86,7 +86,7 @@ jobs:
 
       - name: Ensure QtQuick3D is bundled
         run: |
-          QT_DIR="/Users/runner/hostedtoolcache/Qt/6.5.3/macos"
+          QT_DIR="/Users/runner/hostedtoolcache/Qt/6.8.3/macos"
           APP_QML_DIR="build/AMarinerControl.app/Contents/Resources/qml"
           mkdir -p "$APP_QML_DIR"
           cp -R "$QT_DIR/qml/QtQuick3D" "$APP_QML_DIR/" || true
