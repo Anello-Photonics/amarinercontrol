@@ -46,54 +46,51 @@ jobs:
           brew update
           brew install gstreamer gst-plugins-base gst-plugins-good cmake ninja create-dmg
 
-      - name: Install Qt
-        uses: jurplel/install-qt-action@v4
+      - name: Set up Python (for aqtinstall)
+        uses: actions/setup-python@v5
         with:
-          version: ${{ env.QT_VERSION }}
-          host: mac
-          target: desktop
-          arch: clang_64
-          dir: ${{ runner.temp }}
-          modules: qtquick3d qtmultimedia qtshadertools qtcharts qtlocation qtpositioning qtspeech qtserialport qtimageformats qtconnectivity qtsensors qt5compat
-          setup-python: true
-          cache: true
+          python-version: "3.12"
 
-      - name: Configure
+      - name: Install Qt using aqtinstall
         run: |
-          mkdir -p ${{ runner.temp }}/build
-          ${{ env.QT_ROOT_DIR }}/bin/qt-cmake \
-            -S ${{ github.workspace }} \
-            -B ${{ runner.temp }}/build \
-            -G Ninja \
-            -DCMAKE_BUILD_TYPE=${{ matrix.BuildType }}
+          python3 -m pip install --upgrade pip
+          pip install aqtinstall==3.3.*
+          python3 -m aqt install-qt mac desktop ${{ env.QT_VERSION }} clang_64 \
+            --modules qtbase qtdeclarative qtquickcontrols2 qtquick3d qtmultimedia \
+                      qtshadertools qtcharts qtlocation qtpositioning qtspeech \
+                      qtserialport qtimageformats qtconnectivity qtsensors qt5compat \
+            --outputdir $HOME/Qt
+        shell: bash
 
-      - name: Build
-        working-directory: ${{ runner.temp }}/build
-        run: cmake --build . --target all --config ${{ matrix.BuildType }} --parallel
-
-      - name: Copy QML Modules into App Bundle
+      - name: Set Qt environment
         run: |
-          QT_DIR="${{ runner.temp }}/Qt/${{ env.QT_VERSION }}/clang_64"
-          APP_BUNDLE="build/AMarinerControl.app"
+          echo "QT_DIR=$HOME/Qt/$QT_VERSION/clang_64" >> $GITHUB_ENV
+          echo "PATH=$QT_DIR/bin:$PATH" >> $GITHUB_ENV
+        shell: bash
 
-          # Copy QtQuick3D and other QML folders
-          mkdir -p "$APP_BUNDLE/Contents/Resources/qml"
-          cp -r "$QT_DIR/qml/QtQuick3D" "$APP_BUNDLE/Contents/Resources/qml/"
-          cp -r "$QT_DIR/qml/QtQuick" "$APP_BUNDLE/Contents/Resources/qml/"
-          cp -r "$QT_DIR/qml/QtQuick.Controls" "$APP_BUNDLE/Contents/Resources/qml/"
+      - name: Build app with CMake
+        run: |
+          mkdir -p build
+          cd build
+          cmake .. -DCMAKE_PREFIX_PATH=$QT_DIR
+          cmake --build . --config Release
+        shell: bash
 
-          # Copy your app's QML folders (e.g., MainWindow, UI, subfolders)
+      - name: Deploy .app with QML
+        run: |
+          APP_BUNDLE="build/${APP_NAME}.app"
+        
+          # Use macdeployqt to copy Qt libraries and QML modules automatically
+          macdeployqt "$APP_BUNDLE" -qmldir=src
+        
+          # Manually copy your app's QML folders (UI, subfolders)
           cp -r src/UI "$APP_BUNDLE/Contents/Resources/qml/"
           cp -r src/SomeOtherQMLFolder "$APP_BUNDLE/Contents/Resources/qml/"
+        shell: bash
 
-      - name: Set QML Import Path
+      - name: Verify app bundle
         run: |
-          export QML2_IMPORT_PATH="build/AMarinerControl.app/Contents/Resources/qml"
-          echo "QML2_IMPORT_PATH=$QML2_IMPORT_PATH" >> $GITHUB_ENV
-
-      - name: Run App (Test)
-        run: |
-          ./build/AMarinerControl.app/Contents/MacOS/AMarinerControl --noqmlcache
+          ls -R build/${APP_NAME}.app/Contents/Resources/qml
           
       - name: Ensure QtQuick3D is bundled
         run: |
