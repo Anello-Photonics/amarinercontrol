@@ -2,14 +2,14 @@ target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_
 target_sources(${CMAKE_PROJECT_NAME} PRIVATE VideoItemStub.h)
 
 if(QGC_ENABLE_GST_VIDEOSTREAMING)
-    #if(NOT MACOS)
-    #    # Using FindGStreamer.cmake is currently bypassed on MACOS since it doesn't work
-    #    # So for now we hack in a simple hardwired setup which does work
-    #    find_package(GStreamer
-    #        REQUIRED
-    #        COMPONENTS Core Base Video Gl GlPrototypes Rtsp
-    #        OPTIONAL_COMPONENTS GlEgl GlWayland GlX11)
-    #endif()
+    if(NOT MACOS)
+        # Using FindGStreamer.cmake is currently bypassed on MACOS since it doesn't work
+        # So for now we hack in a simple hardwired setup which does work
+        find_package(GStreamer
+            REQUIRED
+            COMPONENTS Core Base Video Gl GlPrototypes Rtsp
+            OPTIONAL_COMPONENTS GlEgl GlWayland GlX11)
+    endif()
     # Use pkg-config everywhere (Linux + macOS with Homebrew)
     if(WIN32)
         # Windows uses GStreamer SDK / installer
@@ -17,21 +17,11 @@ if(QGC_ENABLE_GST_VIDEOSTREAMING)
             REQUIRED
             COMPONENTS Core Base Video Gl GlPrototypes Rtsp
             OPTIONAL_COMPONENTS GlEgl GlWayland GlX11)
-    else()
-        # Linux and macOS use pkg-config
-        find_package(PkgConfig REQUIRED)
-        pkg_check_modules(GSTREAMER REQUIRED gstreamer-1.0>=1.20
-                                              gstreamer-base-1.0
-                                              gstreamer-video-1.0
-                                              gstreamer-app-1.0
-                                              gstreamer-gl-1.0
-                                              gstreamer-rtsp-1.0)
-        include_directories(${GSTREAMER_INCLUDE_DIRS})
-        link_directories(${GSTREAMER_LIBRARY_DIRS})
     endif()
 
     # TODO: https://gstreamer.freedesktop.org/documentation/qt6d3d11/index.html#qml6d3d11sink-page
 endif()
+
 
 if(TARGET gstqml6gl)
     target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE gstqml6gl)
@@ -101,21 +91,21 @@ if(TARGET gstqml6gl)
                 PATTERN "*.exe"
         )
     elseif(MACOS)
-        #if(GSTREAMER_FRAMEWORK)
-        #    install(
-        #        DIRECTORY "${GSTREAMER_FRAMEWORK}"
-        #        DESTINATION "${CMAKE_INSTALL_PREFIX}/${CMAKE_PROJECT_NAME}.app/Contents/Frameworks"
-        #        PATTERN "*.la" EXCLUDE
-        #        PATTERN "*.a" EXCLUDE
-        #        PATTERN "*/bin" EXCLUDE
-        #        PATTERN "*/etc" EXCLUDE
-        #        PATTERN "*/gst-validate-launcher" EXCLUDE
-        #        PATTERN "*/Headers" EXCLUDE
-        #        PATTERN "*/include" EXCLUDE
-        #        PATTERN "*/pkgconfig" EXCLUDE
-        #        PATTERN "*/share" EXCLUDE
-        #    )
-        #endif()
+        if(GSTREAMER_FRAMEWORK)
+            install(
+                DIRECTORY "${GSTREAMER_FRAMEWORK}"
+                DESTINATION "${CMAKE_INSTALL_PREFIX}/${CMAKE_PROJECT_NAME}.app/Contents/Frameworks"
+                PATTERN "*.la" EXCLUDE
+                PATTERN "*.a" EXCLUDE
+                PATTERN "*/bin" EXCLUDE
+                PATTERN "*/etc" EXCLUDE
+                PATTERN "*/gst-validate-launcher" EXCLUDE
+                PATTERN "*/Headers" EXCLUDE
+                PATTERN "*/include" EXCLUDE
+                PATTERN "*/pkgconfig" EXCLUDE
+                PATTERN "*/share" EXCLUDE
+            )
+        endif()
         # Homebrew-based GStreamer: nothing to install here
     endif()
 endif()

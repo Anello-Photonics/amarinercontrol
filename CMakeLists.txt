@@ -107,6 +107,11 @@ endif()
 #               Qt6 Configuration
 #######################################################
 
+# Prevent Qt from using the obsolete AGL framework on macOS
+set(WrapOpenGL_AGL "" CACHE STRING "" FORCE)
+set(__opengl_agl_fw_path "" CACHE STRING "" FORCE)
+
+
 find_package(Qt6
     ${QGC_QT_MINIMUM_VERSION}...${QGC_QT_MAXIMUM_VERSION}
     REQUIRED
@@ -252,3 +257,15 @@ set_target_properties(GeographicLib_STATIC PROPERTIES AUTOMOC OFF)
 set_target_properties(shp PROPERTIES AUTOMOC OFF)
 set_target_properties(ulog_cpp PROPERTIES AUTOMOC OFF)
 set_target_properties(zlibstatic PROPERTIES AUTOMOC OFF)
+
+# --- macOS: Strip deprecated AGL framework if added automatically ---
+if(APPLE)
+    foreach(target ${CMAKE_PROJECT_NAME})
+        get_target_property(_link_flags ${target} LINK_FLAGS)
+        if(_link_flags)
+            string(REPLACE "-framework AGL" "" _link_flags "${_link_flags}")
+            set_target_properties(${target} PROPERTIES LINK_FLAGS "${_link_flags}")
+        endif()
+    endforeach()
+endif()
+
