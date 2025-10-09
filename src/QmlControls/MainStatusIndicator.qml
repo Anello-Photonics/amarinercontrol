@@ -43,8 +43,8 @@ RowLayout {
         font.pointSize:     ScreenTools.largeFontPointSize
 
         property string _commLostText:      qsTr("Comms Lost")
-        property string _readyToFlyText:    qsTr("Ready To Fly")
-        property string _notReadyToFlyText: qsTr("Not Ready")
+        property string _readyToFlyText:    qsTr("Connected")
+        property string _notReadyToFlyText: qsTr("Connected")
         property string _disconnectedText:  qsTr("Disconnected - Click to manually connect")
         property string _armedText:         qsTr("Armed")
         property string _flyingText:        qsTr("Flying")
@@ -60,53 +60,58 @@ RowLayout {
                 if (_activeVehicle.armed) {
                     _mainStatusBGColor = "green"
 
-                    if (_healthAndArmingChecksSupported) {
-                        if (_activeVehicle.healthAndArmingCheckReport.canArm) {
-                            if (_activeVehicle.healthAndArmingCheckReport.hasWarningsOrErrors) {
-                                _mainStatusBGColor = "yellow"
-                            }
-                        } else {
-                            _mainStatusBGColor = "red"
-                        }
-                    }
+                    //if (_healthAndArmingChecksSupported) {
+                    //    if (_activeVehicle.healthAndArmingCheckReport.canArm) {
+                    //        if (_activeVehicle.healthAndArmingCheckReport.hasWarningsOrErrors) {
+                    //            _mainStatusBGColor = "yellow"
+                    //        }
+                    //    } else {
+                    //        _mainStatusBGColor = "red"
+                    //    }
+                    //}
 
-                    if (_activeVehicle.flying) {
-                        return mainStatusLabel._flyingText
-                    } else if (_activeVehicle.landing) {
-                        return mainStatusLabel._landingText
-                    } else {
-                        return mainStatusLabel._armedText
-                    }
+                    //if (_activeVehicle.flying) {
+                    //    return mainStatusLabel._flyingText
+                    //} else if (_activeVehicle.landing) {
+                    //    return mainStatusLabel._landingText
+                    //} else {
+                    //    return mainStatusLabel._armedText
+                    //}
                 } else {
                     if (_healthAndArmingChecksSupported) {
                         if (_activeVehicle.healthAndArmingCheckReport.canArm) {
-                            if (_activeVehicle.healthAndArmingCheckReport.hasWarningsOrErrors) {
-                                _mainStatusBGColor = "yellow"
-                            } else {
-                                _mainStatusBGColor = "green"
-                            }
+                            //if (_activeVehicle.healthAndArmingCheckReport.hasWarningsOrErrors) {
+                            //    _mainStatusBGColor = "yellow"
+                            //} else {
+                            //    _mainStatusBGColor = "green"
+                            //}
+                            _mainStatusBGColor = "green"
                             return mainStatusLabel._readyToFlyText
                         } else {
-                            _mainStatusBGColor = "red"
-                            return mainStatusLabel._notReadyToFlyText
+                            //_mainStatusBGColor = "red"
+                            //return mainStatusLabel._notReadyToFlyText
                         }
                     } else if (_activeVehicle.readyToFlyAvailable) {
-                        if (_activeVehicle.readyToFly) {
-                            _mainStatusBGColor = "green"
-                            return mainStatusLabel._readyToFlyText
-                        } else {
-                            _mainStatusBGColor = "yellow"
-                            return mainStatusLabel._notReadyToFlyText
-                        }
+                        //if (_activeVehicle.readyToFly) {
+                        //    _mainStatusBGColor = "green"
+                        //    return mainStatusLabel._readyToFlyText
+                        //} else {
+                        //    _mainStatusBGColor = "yellow"
+                        //    return mainStatusLabel._notReadyToFlyText
+                        //}
+                        _mainStatusBGColor = "green"
+                        return mainStatusLabel._readyToFlyText
                     } else {
                         // Best we can do is determine readiness based on AutoPilot component setup and health indicators from SYS_STATUS
-                        if (_activeVehicle.allSensorsHealthy && _activeVehicle.autopilotPlugin.setupComplete) {
-                            _mainStatusBGColor = "green"
-                            return mainStatusLabel._readyToFlyText
-                        } else {
-                            _mainStatusBGColor = "yellow"
-                            return mainStatusLabel._notReadyToFlyText
-                        }
+                        //if (_activeVehicle.allSensorsHealthy && _activeVehicle.autopilotPlugin.setupComplete) {
+                        //    _mainStatusBGColor = "green"
+                        //    return mainStatusLabel._readyToFlyText
+                        //} else {
+                        //    _mainStatusBGColor = "yellow"
+                        //    return mainStatusLabel._notReadyToFlyText
+                        //}
+                        _mainStatusBGColor = "green"
+                        return mainStatusLabel._readyToFlyText
                     }
                 }
             } else {

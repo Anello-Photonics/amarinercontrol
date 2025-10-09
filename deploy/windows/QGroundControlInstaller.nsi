@@ -46,6 +46,8 @@ Section "Install"
     CreateDirectory "$SMPROGRAMS\AMarinerControl"
     CreateShortcut "$SMPROGRAMS\AMarinerControl\AMarinerControl.lnk" "$INSTDIR\AMarinerControl.exe" "" "$INSTDIR\ANELLO.ico"
 
+    WriteUninstaller "$INSTDIR\Uninstall.exe"
+
 SectionEnd
 
 ;--------------------------------
