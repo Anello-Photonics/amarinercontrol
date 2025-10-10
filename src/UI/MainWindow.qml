@@ -332,18 +332,18 @@ ApplicationWindow {
                         Layout.margins: toolSelectDialog._margins
                         spacing:        ScreenTools.defaultFontPixelWidth
 
-                        SubMenuButton {
-                            height:             toolSelectDialog._toolButtonHeight
-                            Layout.fillWidth:   true
-                            text:               qsTr("Plan Flight")
-                            imageResource:      "/qmlimages/Plan.svg"
-                            onClicked: {
-                                if (mainWindow.allowViewSwitch()) {
-                                    mainWindow.closeIndicatorDrawer()
-                                    mainWindow.showPlanView()
-                                }
-                            }
-                        }
+                        //SubMenuButton {
+                        //    height:             toolSelectDialog._toolButtonHeight
+                        //    Layout.fillWidth:   true
+                        //    text:               qsTr("Plan Flight")
+                        //    imageResource:      "/qmlimages/Plan.svg"
+                        //    onClicked: {
+                        //        if (mainWindow.allowViewSwitch()) {
+                        //            mainWindow.closeIndicatorDrawer()
+                        //            mainWindow.showPlanView()
+                        //        }
+                        //    }
+                        //}
 
                         SubMenuButton {
                             id:                 analyzeButton
