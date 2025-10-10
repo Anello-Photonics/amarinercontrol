@@ -151,7 +151,7 @@ RowLayout {
         }
     }
 
-    QGCLabel {
+    /*QGCLabel {
         id:                 vtolModeLabel
         Layout.fillHeight:  true
         verticalAlignment:  Text.AlignVCenter
@@ -167,7 +167,7 @@ RowLayout {
                 }
             }
         }
-    }
+    }*/
 
     Component {
         id: overallStatusOfflineIndicatorPage

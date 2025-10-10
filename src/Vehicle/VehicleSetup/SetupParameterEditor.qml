@@ -16,6 +16,17 @@ import QGroundControl.Controls
 
 
 
-ParameterEditor {
+Item {
+    anchors.fill: parent
+    anchors.margins: 10
 
+    Rectangle {
+        anchors.fill: parent
+        color: "transparent" // Just for structure, no visible border
+
+        ParameterEditor {
+            anchors.fill: parent
+            anchors.margins: 10
+        }
+    }
 }

@@ -20,40 +20,40 @@ ListModel {
         pageVisible: function() { return true }
     }
 
-    ListElement {
-        name: qsTr("Fly View")
-        url: "qrc:/qml/QGroundControl/AppSettings/FlyViewSettings.qml"
-        iconUrl: "qrc:/qmlimages/PaperPlane.svg"
-        pageVisible: function() { return true }
-    }
+    //ListElement {
+    //    name: qsTr("Fly View")
+    //    url: "qrc:/qml/QGroundControl/AppSettings/FlyViewSettings.qml"
+    //    iconUrl: "qrc:/qmlimages/PaperPlane.svg"
+    //    pageVisible: function() { return true }
+    //}
 
-    ListElement {
-        name: qsTr("Plan View")
-        url: "qrc:/qml/QGroundControl/AppSettings/PlanViewSettings.qml"
-        iconUrl: "qrc:/qmlimages/Plan.svg"
-        pageVisible: function() { return true }
-    }
+    //ListElement {
+    //    name: qsTr("Plan View")
+    //    url: "qrc:/qml/QGroundControl/AppSettings/PlanViewSettings.qml"
+    //    iconUrl: "qrc:/qmlimages/Plan.svg"
+    //    pageVisible: function() { return true }
+    //}
 
-    ListElement {
-        name: qsTr("Video")
-        url: "qrc:/qml/QGroundControl/AppSettings/VideoSettings.qml"
-        iconUrl: "qrc:/InstrumentValueIcons/camera.svg"
-        pageVisible: function() { return QGroundControl.settingsManager.videoSettings.visible }
-    }
+    //ListElement {
+    //    name: qsTr("Video")
+    //    url: "qrc:/qml/QGroundControl/AppSettings/VideoSettings.qml"
+    //    iconUrl: "qrc:/InstrumentValueIcons/camera.svg"
+    //    pageVisible: function() { return QGroundControl.settingsManager.videoSettings.visible }
+    //}
 
-    ListElement {
-        name: qsTr("Telemetry")
-        url: "qrc:/qml/QGroundControl/AppSettings/TelemetrySettings.qml"
-        iconUrl: "qrc:/InstrumentValueIcons/drone.svg"
-        pageVisible: function() { return true }
-    }
+    //ListElement {
+    //    name: qsTr("Telemetry")
+    //    url: "qrc:/qml/QGroundControl/AppSettings/TelemetrySettings.qml"
+    //    iconUrl: "qrc:/InstrumentValueIcons/drone.svg"
+    //    pageVisible: function() { return true }
+    //}
 
-    ListElement {
-        name: qsTr("ADSB Server")
-        url: "qrc:/qml/QGroundControl/AppSettings/ADSBServerSettings.qml"
-        iconUrl: "qrc:/InstrumentValueIcons/airplane.svg"
-        pageVisible: function() { return true }
-    }
+    //ListElement {
+    //    name: qsTr("ADSB Server")
+    //    url: "qrc:/qml/QGroundControl/AppSettings/ADSBServerSettings.qml"
+    //    iconUrl: "qrc:/InstrumentValueIcons/airplane.svg"
+    //    pageVisible: function() { return true }
+    //}
 
     ListElement {
         name: qsTr("Comm Links")
@@ -81,12 +81,12 @@ ListModel {
         }
     }
 
-    ListElement {
-        name: qsTr("Remote ID")
-        url: "qrc:/qml/QGroundControl/AppSettings/RemoteIDSettings.qml"
-        iconUrl: "qrc:/qmlimages/RidIconManNoID.svg"
-        pageVisible: function() { return true }
-    }
+    //ListElement {
+    //    name: qsTr("Remote ID")
+    //    url: "qrc:/qml/QGroundControl/AppSettings/RemoteIDSettings.qml"
+    //    iconUrl: "qrc:/qmlimages/RidIconManNoID.svg"
+    //    pageVisible: function() { return true }
+    //}
 
     ListElement {
         name: qsTr("Console")

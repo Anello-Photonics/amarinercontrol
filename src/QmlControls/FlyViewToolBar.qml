@@ -103,7 +103,7 @@ Rectangle {
 
     //-------------------------------------------------------------------------
     //-- Branding Logo
-    Image {
+    /*Image {
         anchors.right:          parent.right
         anchors.top:            parent.top
         anchors.bottom:         parent.bottom
@@ -153,7 +153,7 @@ Rectangle {
                 }
             }
         }
-    }
+    }*/
 
     // Small parameter download progress bar
     Rectangle {

@@ -135,7 +135,8 @@ ApplicationWindow {
     }
 
     function showVehicleConfig() {
-        showTool(qsTr("Vehicle Configuration"), "qrc:/qml/QGroundControl/VehicleSetup/SetupView.qml", "/qmlimages/Gears.svg")
+        //showTool(qsTr("Vehicle Configuration"), "qrc:/qml/QGroundControl/VehicleSetup/SetupView.qml", "/qmlimages/Gears.svg")
+        showTool(qsTr("Parameters"), "qrc:/qml/QGroundControl/VehicleSetup/SetupParameterEditor.qml", "/qmlimages/Gears.svg")
     }
 
     function showVehicleConfigParametersPage() {
@@ -364,7 +365,7 @@ ApplicationWindow {
                             id:                 setupButton
                             height:             toolSelectDialog._toolButtonHeight
                             Layout.fillWidth:   true
-                            text:               qsTr("Vehicle Configuration")
+                            text:               qsTr("Parameters")
                             imageResource:      "/qmlimages/Gears.svg"
                             onClicked: {
                                 if (mainWindow.allowViewSwitch()) {
