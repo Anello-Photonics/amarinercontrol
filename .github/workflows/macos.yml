@@ -3,7 +3,7 @@ name: MacOS
 on:
   push:
     branches:
-      - master
+      - MacOS-workflow
       - 'Stable*'
     tags:
       - 'v*'
