@@ -3,7 +3,7 @@ name: Build macOS Release
 on:
   push:
     branches:
-      - master
+      - MacOS-workflow
   pull_request:
 
 jobs:
