@@ -157,6 +157,7 @@ int main(int argc, char *argv[])
 #endif
 #endif // Q_OS_WIN
 
+
     QGCApplication app(argc, argv, runUnitTests, simpleBootTest);
 
 #if defined(Q_OS_LINUX) && !defined(Q_OS_ANDROID)

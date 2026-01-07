@@ -31,7 +31,8 @@ ApplicationWindow {
 
     Component.onCompleted: {
         // Start the sequence of first run prompt(s)
-        firstRunPromptManager.nextPrompt()
+        //supress first run prompts (units, vehicle info, etc
+        //firstRunPromptManager.nextPrompt()
     }
 
     /// Saves main window position and size and re-opens it in the same position and size next time

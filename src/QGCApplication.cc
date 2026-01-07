@@ -252,6 +252,7 @@ void QGCApplication::_initVideo()
 
 void QGCApplication::_initForNormalAppBoot()
 {
+
     _initVideo(); // GStreamer must be initialized before QmlEngine
 
     QQuickStyle::setStyle("Basic");
