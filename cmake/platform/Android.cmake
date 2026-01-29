@@ -3,10 +3,8 @@ if(NOT ANDROID)
     return()
 endif()
 
-if(${Qt6_VERSION} VERSION_EQUAL 6.8.3)
-    if(NOT ${CMAKE_ANDROID_NDK_VERSION} VERSION_EQUAL 26.1 AND NOT ${CMAKE_ANDROID_NDK_VERSION} VERSION_EQUAL 27.2)
-        message(FATAL_ERROR "Invalid NDK Version: ${CMAKE_ANDROID_NDK_VERSION}, Use Version 26B of 27C instead.")
-    endif()
+if(NOT ${CMAKE_ANDROID_NDK_VERSION} VERSION_EQUAL 26.1 AND NOT ${CMAKE_ANDROID_NDK_VERSION} VERSION_EQUAL 27.2)
+    message(FATAL_ERROR "Invalid NDK Version: ${CMAKE_ANDROID_NDK_VERSION}, Use Version 26B of 27C instead.")
 endif()
 
 # Generation of android version numbers must be consistent release to release such that they are always increasing

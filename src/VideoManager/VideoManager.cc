@@ -19,13 +19,6 @@
 #include "Vehicle.h"
 #include "VideoReceiver.h"
 #include "VideoSettings.h"
-#ifdef QGC_GST_STREAMING
-#include "GStreamer.h"
-#else
-#include "VideoItemStub.h"
-#endif
-#include "QtMultimediaReceiver.h"
-#include "UVCReceiver.h"
 
 #include <QtCore/QApplicationStatic>
 #include <QtCore/QDir>
@@ -53,13 +46,6 @@ VideoManager::VideoManager(QObject *parent)
 
     (void) qRegisterMetaType<VideoReceiver::STATUS>("STATUS");
 
-#ifdef QGC_GST_STREAMING
-    if (!GStreamer::initialize()) {
-        qCCritical(VideoManagerLog) << "Failed To Initialize GStreamer";
-    }
-#else
-    (void) qmlRegisterType<VideoItemStub>("org.freedesktop.gstreamer.Qt6GLVideoItem", 1, 0, "GstGLQt6VideoItem");
-#endif
 }
 
 VideoManager::~VideoManager()
@@ -281,26 +267,7 @@ bool VideoManager::hasVideo() const
 
 bool VideoManager::isUvc() const
 {
-    return (!_uvcVideoSourceID.isEmpty() && uvcEnabled() && hasVideo());
-}
-
-bool VideoManager::gstreamerEnabled()
-{
-#ifdef QGC_GST_STREAMING
-    return true;
-#else
     return false;
-#endif
-}
-
-bool VideoManager::uvcEnabled()
-{
-    return UVCReceiver::enabled();
-}
-
-bool VideoManager::qtmultimediaEnabled()
-{
-    return QtMultimediaReceiver::enabled();
 }
 
 void VideoManager::setfullScreen(bool on)
@@ -375,27 +342,13 @@ void VideoManager::_videoSourceChanged()
 
 bool VideoManager::_updateUVC(VideoReceiver *receiver)
 {
-    bool result = false;
-
-    const QString oldUvcVideoSrcID = _uvcVideoSourceID;
-
-    if (!uvcEnabled() || !hasVideo() || isStreamSource()) {
-        _uvcVideoSourceID = QString();
-    } else {
-        _uvcVideoSourceID = UVCReceiver::getSourceId();
-    }
-
-    if (oldUvcVideoSrcID != _uvcVideoSourceID) {
-        qCDebug(VideoManagerLog) << "UVC changed from [" << oldUvcVideoSrcID << "] to [" << _uvcVideoSourceID << "]";
-        if (!_uvcVideoSourceID.isEmpty()) {
-            UVCReceiver::checkPermission();
-        }
-        result = true;
+    Q_UNUSED(receiver);
+    if (!_uvcVideoSourceID.isEmpty()) {
+        _uvcVideoSourceID.clear();
         emit uvcVideoSourceIDChanged();
         emit isUvcChanged();
     }
-
-    return result;
+    return false;
 }
 
 bool VideoManager::autoStreamConfigured() const
@@ -651,8 +604,7 @@ void VideoManager::_startReceiver(VideoReceiver *receiver)
     }
 
     const QString source = _videoSettings->videoSource()->rawValue().toString();
-    /* The gstreamer rtsp source will switch to tcp if udp is not available after 5 seconds.
-       So we should allow for some negotiation time for rtsp */
+    /* RTSP sources may switch to TCP if UDP is unavailable, so allow some negotiation time. */
 
     const uint32_t timeout = ((source == VideoSettings::videoSourceRTSP) ? _videoSettings->rtspTimeout()->rawValue().toUInt() : 3);
 

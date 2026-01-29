@@ -9,9 +9,6 @@ qt_add_qml_module(FlightDisplayModule
         DefaultChecklist.qml
         FixedWingChecklist.qml
         FlightDisplayViewDummy.qml
-        FlightDisplayViewGStreamer.qml
-        FlightDisplayViewQtMultimedia.qml
-        FlightDisplayViewUVC.qml
         FlightDisplayViewVideo.qml
         FlyView.qml
         FlyViewAdditionalActionsButton.qml

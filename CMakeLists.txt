@@ -113,7 +113,7 @@ set(__opengl_agl_fw_path "" CACHE STRING "" FORCE)
 
 
 find_package(Qt6
-    ${QGC_QT_MINIMUM_VERSION}...${QGC_QT_MAXIMUM_VERSION}
+    ${QGC_QT_MINIMUM_VERSION}
     REQUIRED
     COMPONENTS
         Charts
@@ -123,7 +123,6 @@ find_package(Qt6
         Gui
         LinguistTools
         Location
-        Multimedia
         Network
         Positioning
         Qml
@@ -139,7 +138,6 @@ find_package(Qt6
         Xml
     OPTIONAL_COMPONENTS
         Bluetooth
-        MultimediaQuickPrivate
         Quick3D
         SerialPort
         Test
@@ -151,7 +149,6 @@ endif()
 
 qt_standard_project_setup(
     REQUIRES ${QGC_QT_MINIMUM_VERSION}
-    SUPPORTS_UP_TO ${QGC_QT_MAXIMUM_VERSION}
     I18N_SOURCE_LANGUAGE en
 )
 
@@ -268,4 +265,3 @@ if(APPLE)
         endif()
     endforeach()
 endif()
-

@@ -23,7 +23,6 @@ SettingsPage {
     property var    _videoManager:              QGroundControl.videoManager
     property var    _videoSettings:             _settingsManager.videoSettings
     property string _videoSource:               _videoSettings.videoSource.rawValue
-    property bool   _isGST:                     _videoManager.gstreamerEnabled
     property bool   _isStreamSource:            _videoManager.isStreamSource
     property bool   _isUDP264:                  _isStreamSource && (_videoSource === _videoSettings.udp264VideoSource)
     property bool   _isUDP265:                  _isStreamSource && (_videoSource === _videoSettings.udp265VideoSource)
@@ -97,13 +96,6 @@ SettingsPage {
             text:               qsTr("Stop recording when disarmed")
             fact:               _videoSettings.disableWhenDisarmed
             visible:            !_videoAutoStreamConfig && _isStreamSource && fact.visible
-        }
-
-        FactCheckBoxSlider {
-            Layout.fillWidth:   true
-            text:               qsTr("Low Latency Mode")
-            fact:               _videoSettings.lowLatencyMode
-            visible:            !_videoAutoStreamConfig && _isStreamSource && fact.visible && _isGST
         }
 
         LabelledFactComboBox {

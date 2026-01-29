@@ -12,43 +12,14 @@
 
 #include <QtCore/QVariantList>
 
-#ifdef QGC_GST_STREAMING
-#include "GStreamer.h"
-#endif
-#ifndef QGC_DISABLE_UVC
-#include "UVCReceiver.h"
-#endif
 
 DECLARE_SETTINGGROUP(Video, "Video")
 {
     // Setup enum values for videoSource settings into meta data
     QVariantList videoSourceList;
-#if defined(QGC_GST_STREAMING) || defined(QGC_QT_STREAMING)
-    videoSourceList.append(videoSourceRTSP);
-    videoSourceList.append(videoSourceUDPH264);
-    videoSourceList.append(videoSourceUDPH265);
-    videoSourceList.append(videoSourceTCP);
-    videoSourceList.append(videoSourceMPEGTS);
-    videoSourceList.append(videoSource3DRSolo);
-    videoSourceList.append(videoSourceParrotDiscovery);
-    videoSourceList.append(videoSourceYuneecMantisG);
-
-    #ifdef QGC_HERELINK_AIRUNIT_VIDEO
-        videoSourceList.append(videoSourceHerelinkAirUnit);
-    #else
-        videoSourceList.append(videoSourceHerelinkHotspot);
-    #endif
-#endif
-#ifndef QGC_DISABLE_UVC
-    videoSourceList.append(UVCReceiver::getDeviceNameList());
-#endif
-    if (videoSourceList.count() == 0) {
-        _noVideo = true;
-        videoSourceList.append(videoSourceNoVideo);
-        setVisible(false);
-    } else {
-        videoSourceList.insert(0, videoDisabled);
-    }
+    _noVideo = true;
+    videoSourceList.append(videoSourceNoVideo);
+    setVisible(false);
 
     // make translated strings
     QStringList videoSourceCookedList;
@@ -105,13 +76,7 @@ DECLARE_SETTINGSFACT_NO_FUNC(VideoSettings, forceVideoDecoder)
     if (!_forceVideoDecoderFact) {
         _forceVideoDecoderFact = _createSettingsFact(forceVideoDecoderName);
 
-        _forceVideoDecoderFact->setVisible(
-#ifdef QGC_GST_STREAMING
-            true
-#else
-            false
-#endif
-        );
+        _forceVideoDecoderFact->setVisible(false);
 
         connect(_forceVideoDecoderFact, &Fact::valueChanged, this, &VideoSettings::_configChanged);
     }
@@ -123,13 +88,7 @@ DECLARE_SETTINGSFACT_NO_FUNC(VideoSettings, lowLatencyMode)
     if (!_lowLatencyModeFact) {
         _lowLatencyModeFact = _createSettingsFact(lowLatencyModeName);
 
-        _lowLatencyModeFact->setVisible(
-#ifdef QGC_GST_STREAMING
-            true
-#else
-            false
-#endif
-        );
+        _lowLatencyModeFact->setVisible(false);
 
         connect(_lowLatencyModeFact, &Fact::valueChanged, this, &VideoSettings::_configChanged);
     }
@@ -141,13 +100,7 @@ DECLARE_SETTINGSFACT_NO_FUNC(VideoSettings, rtspTimeout)
     if (!_rtspTimeoutFact) {
         _rtspTimeoutFact = _createSettingsFact(rtspTimeoutName);
 
-        _rtspTimeoutFact->setVisible(
-#ifdef QGC_GST_STREAMING
-            true
-#else
-            false
-#endif
-        );
+        _rtspTimeoutFact->setVisible(false);
 
         connect(_rtspTimeoutFact, &Fact::valueChanged, this, &VideoSettings::_configChanged);
     }
@@ -223,12 +176,6 @@ bool VideoSettings::streamConfigured(void)
         qCDebug(VideoManagerLog) << "Stream configured for Herelink Hotspot";
         return true;
     }
-#ifndef QGC_DISABLE_UVC
-    if (UVCReceiver::enabled() && UVCReceiver::deviceExists(vSource)) {
-        qCDebug(VideoManagerLog) << "Stream configured for UVC";
-        return true;
-    }
-#endif
     return false;
 }
 
@@ -239,33 +186,4 @@ void VideoSettings::_configChanged(QVariant)
 
 void VideoSettings::_setForceVideoDecodeList()
 {
-#ifdef QGC_GST_STREAMING
-    static const QList<GStreamer::VideoDecoderOptions> removeForceVideoDecodeList{
-#if defined(Q_OS_ANDROID)
-    GStreamer::VideoDecoderOptions::ForceVideoDecoderDirectX3D,
-    GStreamer::VideoDecoderOptions::ForceVideoDecoderVideoToolbox,
-    GStreamer::VideoDecoderOptions::ForceVideoDecoderVAAPI,
-    GStreamer::VideoDecoderOptions::ForceVideoDecoderNVIDIA,
-    GStreamer::VideoDecoderOptions::ForceVideoDecoderIntel,
-#elif defined(Q_OS_LINUX)
-    GStreamer::VideoDecoderOptions::ForceVideoDecoderDirectX3D,
-    GStreamer::VideoDecoderOptions::ForceVideoDecoderVideoToolbox,
-#elif defined(Q_OS_WIN)
-    GStreamer::VideoDecoderOptions::ForceVideoDecoderVideoToolbox,
-    GStreamer::VideoDecoderOptions::ForceVideoDecoderVulkan,
-#elif defined(Q_OS_MACOS)
-    GStreamer::VideoDecoderOptions::ForceVideoDecoderDirectX3D,
-    GStreamer::VideoDecoderOptions::ForceVideoDecoderVAAPI,
-#elif defined(Q_OS_IOS)
-    GStreamer::VideoDecoderOptions::ForceVideoDecoderDirectX3D,
-    GStreamer::VideoDecoderOptions::ForceVideoDecoderVAAPI,
-    GStreamer::VideoDecoderOptions::ForceVideoDecoderNVIDIA,
-    GStreamer::VideoDecoderOptions::ForceVideoDecoderIntel,
-#endif
-    };
-
-    for (const auto &value : removeForceVideoDecodeList) {
-        _nameToMetaDataMap[forceVideoDecoderName]->removeEnumInfo(value);
-    }
-#endif
 }
