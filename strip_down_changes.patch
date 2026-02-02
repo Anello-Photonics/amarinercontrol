@@ -1,0 +1,4059 @@
+ (cd "$(git rev-parse --show-toplevel)" && git apply --3way <<'EOF' 
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 01d63bd85ed94d6b0cc3030b084fe5241039863f..583e9d31c46bb91bf8d90a73bbaf0c205a23c478 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -91,89 +91,86 @@ if(POLICY CMP0168)
+     set(CMAKE_POLICY_DEFAULT_CMP0168 NEW)
+ endif()
+ 
+ # https://cmake.org/cmake/help/latest/policy/CMP0141.html#policy:CMP0141
+ if(POLICY CMP0141)
+     cmake_policy(SET CMP0141 NEW)
+     set(CMAKE_POLICY_DEFAULT_CMP0141 NEW)
+ endif()
+ 
+ # https://cmake.org/cmake/help/latest/policy/CMP0075.html#policy:CMP0075
+ if(POLICY CMP0075)
+     cmake_policy(SET CMP0075 NEW)
+     set(CMAKE_POLICY_DEFAULT_CMP0075 NEW)
+ endif()
+ 
+ #######################################################
+ #               Qt6 Configuration
+ #######################################################
+ 
+ # Prevent Qt from using the obsolete AGL framework on macOS
+ set(WrapOpenGL_AGL "" CACHE STRING "" FORCE)
+ set(__opengl_agl_fw_path "" CACHE STRING "" FORCE)
+ 
+ 
+ find_package(Qt6
+-    ${QGC_QT_MINIMUM_VERSION}...${QGC_QT_MAXIMUM_VERSION}
++    ${QGC_QT_MINIMUM_VERSION}
+     REQUIRED
+     COMPONENTS
+         Charts
+         Concurrent
+         Core
+         Core5Compat
+         Gui
+         LinguistTools
+         Location
+-        Multimedia
+         Network
+         Positioning
+         Qml
+         QmlIntegration
+         Quick
+         QuickControls2
+         QuickWidgets
+         Sensors
+         Sql
+         Svg
+         TextToSpeech
+         Widgets
+         Xml
+     OPTIONAL_COMPONENTS
+         Bluetooth
+-        MultimediaQuickPrivate
+         Quick3D
+         SerialPort
+         Test
+ )
+ 
+ if(LINUX)
+     find_package(Qt6 COMPONENTS WaylandClient)
+ endif()
+ 
+ qt_standard_project_setup(
+     REQUIRES ${QGC_QT_MINIMUM_VERSION}
+-    SUPPORTS_UP_TO ${QGC_QT_MAXIMUM_VERSION}
+     I18N_SOURCE_LANGUAGE en
+ )
+ 
+ qt_policy(
+     SET QTP0001 NEW
+     SET QTP0002 NEW
+     SET QTP0003 NEW
+     SET QTP0004 NEW
+     SET QTP0005 NEW
+ )
+ 
+ #######################################################
+ #                Custom Build Configuration
+ #######################################################
+ 
+ if(QGC_CUSTOM_BUILD)
+     add_subdirectory(custom)
+ endif()
+ 
+ #######################################################
+ #                QGroundControl Resources
+ #######################################################
+ 
+ # Note: Adding Resources to Library instead requires using Q_INIT_RESOURCE(qgcresources)
+ 
+@@ -246,26 +243,25 @@ qt_import_plugins(${CMAKE_PROJECT_NAME}
+     # INCLUDE_BY_TYPE styles Qt6::qtquickcontrols2basicstyleplugin Qt6::qtquickcontrols2basicstyleimplplugin
+ )
+ 
+ include(Install)
+ 
+ include(PrintSummary)
+ 
+ set(CMAKE_AUTOMOC ON) # only for QGC targets
+ 
+ # Disable AUTOMOC for 3rd party libs
+ set_target_properties(GeographicLib_STATIC PROPERTIES AUTOMOC OFF)
+ set_target_properties(shp PROPERTIES AUTOMOC OFF)
+ set_target_properties(ulog_cpp PROPERTIES AUTOMOC OFF)
+ set_target_properties(zlibstatic PROPERTIES AUTOMOC OFF)
+ 
+ # --- macOS: Strip deprecated AGL framework if added automatically ---
+ if(APPLE)
+     foreach(target ${CMAKE_PROJECT_NAME})
+         get_target_property(_link_flags ${target} LINK_FLAGS)
+         if(_link_flags)
+             string(REPLACE "-framework AGL" "" _link_flags "${_link_flags}")
+             set_target_properties(${target} PROPERTIES LINK_FLAGS "${_link_flags}")
+         endif()
+     endforeach()
+ endif()
+-
+diff --git a/cmake/CustomOptions.cmake b/cmake/CustomOptions.cmake
+index 06558e0985fc30f25361868c0c7c8577cf91f032..a8808c94741b8f6778a2fa88cbbb2e1754f67d27 100644
+--- a/cmake/CustomOptions.cmake
++++ b/cmake/CustomOptions.cmake
+@@ -6,82 +6,75 @@ set(QGC_APP_NAME "AMarinerControl" CACHE STRING "App Name")
+ set(QGC_APP_COPYRIGHT "Copyright (c) 2025 QGroundControl. All rights reserved." CACHE STRING "Copyright")
+ set(QGC_APP_DESCRIPTION "Open Source Ground Control App" CACHE STRING "Description")
+ set(QGC_ORG_NAME "QGroundControl" CACHE STRING "Org Name")
+ set(QGC_ORG_DOMAIN "qgroundcontrol.com" CACHE STRING "Domain")
+ set(QGC_PACKAGE_NAME "org.mavlink.qgroundcontrol" CACHE STRING "Package Name")
+ set(QGC_SETTINGS_VERSION "9" CACHE STRING "Settings Version") # If you need to make an incompatible changes to stored settings, bump this version number up by 1. This will caused store settings to be cleared on next boot.
+ 
+ # Build
+ option(BUILD_SHARED_LIBS "Build using shared libraries" OFF)
+ option(QGC_STABLE_BUILD "Stable Build" OFF)
+ option(QGC_USE_CACHE "Use Build Caching" ON)
+ cmake_dependent_option(QGC_BUILD_TESTING "Enable testing" ON "CMAKE_BUILD_TYPE STREQUAL Debug" OFF)
+ cmake_dependent_option(QGC_DEBUG_QML "Build QGroundControl with QML debugging/profiling support." ON "CMAKE_BUILD_TYPE STREQUAL Debug" OFF)
+ 
+ # Features
+ option(QGC_UTM_ADAPTER "Enable UTM Adapter" OFF)
+ option(QGC_VIEWER3D "Enable Viewer3D" ON) # Qt6Quick3D_FOUND
+ # option(QGC_DISABLE_MAVLINK_INSPECTOR "Disable Mavlink Inspector" OFF) # This removes QtCharts which is GPL licensed
+ 
+ # Comms
+ option(QGC_ENABLE_BLUETOOTH "Enable Bluetooth Links" ON) # Qt6Bluetooth_FOUND
+ option(QGC_ZEROCONF_ENABLED "Enable ZeroConf Compatibility" OFF)
+ option(QGC_AIRLINK_DISABLED "Disable AIRLink" ON)
+ option(QGC_NO_SERIAL_LINK "Disable Serial Links" OFF) # NOT IOS AND Qt6SerialPort_FOUND
+ 
+-# Video
+-option(QGC_ENABLE_UVC "Enable UVC Devices" ON) # Qt6Multimedia_FOUND
+-option(QGC_ENABLE_GST_VIDEOSTREAMING "Enable GStreamer Video Backend" ON)
+-cmake_dependent_option(QGC_CUSTOM_GST_PACKAGE "Enable Using QGC Provided Custom GStreamer Packages" OFF "QGC_ENABLE_GST_VIDEOSTREAMING" OFF)
+-option(QGC_ENABLE_QT_VIDEOSTREAMING "Enable QtMultimedia Video Backend" OFF) # Qt6Multimedia_FOUND
+-
+ # Joystick
+ # set(SDL_GAMECONTROLLERCONFIG "0300000009120000544f000011010000,OpenTX Radiomaster TX16S Joystick,leftx:a3,lefty:a2,rightx:a0,righty:a1,platform:Linux" CACHE STRING "Custom SDL Joystick Mappings")
+ 
+ # MAVLink
+ set(QGC_MAVLINK_GIT_REPO "https://github.com/mavlink/c_library_v2.git" CACHE STRING "URL to MAVLink Git Repo")
+ set(QGC_MAVLINK_GIT_TAG "19f9955598af9a9181064619bd2e3c04bd2d848a" CACHE STRING "Tag of MAVLink Git Repo")
+ 
+ # APM
+ option(QGC_DISABLE_APM_MAVLINK "Disable APM Dialect" OFF)
+ option(QGC_DISABLE_APM_PLUGIN "Disable APM Plugin" OFF)
+ option(QGC_DISABLE_APM_PLUGIN_FACTORY "Disable APM Plugin Factory" OFF)
+ 
+ # PX4
+ option(QGC_DISABLE_PX4_PLUGIN "Disable PX4 Plugin" OFF)
+ option(QGC_DISABLE_PX4_PLUGIN_FACTORY "Disable PX4 Plugin Factory" OFF)
+ 
+ # Android
+ set(QGC_QT_ANDROID_TARGET_SDK_VERSION "36" CACHE STRING "Android Target SDK Version")
+ set(QGC_ANDROID_PACKAGE_NAME "${QGC_PACKAGE_NAME}" CACHE STRING "Android Package Name")
+ set(QGC_ANDROID_PACKAGE_SOURCE_DIR "${CMAKE_SOURCE_DIR}/android" CACHE PATH "Android Package Path")
+ set(QT_ANDROID_DEPLOYMENT_TYPE "" CACHE STRING "Forces Signing if Set to Release")
+ option(QT_ANDROID_SIGN_APK "Enable Signing APK" OFF)
+ option(QT_ANDROID_SIGN_AAB "Enable Signing AAB" OFF)
+ option(QT_USE_TARGET_ANDROID_BUILD_DIR "Use Target Android Build Dir" OFF)
+ set(QGC_QT_MINIMUM_VERSION "6.8.3" CACHE STRING "Minimum Supported Qt Version")
+-set(QGC_QT_MAXIMUM_VERSION "6.8.3" CACHE STRING "Maximum Supported Qt Version")
+ set(QGC_QT_ANDROID_MIN_SDK_VERSION "28" CACHE STRING "Android Min SDK Version")
+ 
+ # MacOS
+ set(QGC_MACOS_PLIST_PATH "${CMAKE_SOURCE_DIR}/deploy/macos/MacOSXBundleInfo.plist.in" CACHE FILEPATH "MacOS PList Path")
+ set(QGC_MACOS_BUNDLE_ID "${QGC_PACKAGE_NAME}" CACHE STRING "MacOS Bundle ID")
+ set(QGC_MACOS_ICON_PATH "${CMAKE_SOURCE_DIR}/deploy/macos/ANELLO.icns" CACHE FILEPATH "MacOS Icon Path")
+ set(QGC_MACOS_ENTITLEMENTS_PATH "${CMAKE_SOURCE_DIR}/deploy/macos/qgroundcontrol.entitlements" CACHE FILEPATH "MacOS Entitlements Path")
+ option(QGC_MACOS_UNIVERSAL_BUILD "Build MacOS Universal Build (arm64;x86_64)" ON)
+ 
+ # Linux
+ option(QGC_CREATE_APPIMAGE "Build an AppImage after build" ON)
+ set(QGC_APPIMAGE_ICON_256_PATH "${CMAKE_SOURCE_DIR}/deploy/linux/QGroundControl_256.png" CACHE FILEPATH "AppImage Icon 256x256 Path")
+ set(QGC_APPIMAGE_ICON_SCALABLE_PATH "${CMAKE_SOURCE_DIR}/deploy/linux/QGroundControl.svg" CACHE FILEPATH "AppImage Icon SVG Path")
+ set(QGC_APPIMAGE_APPRUN_PATH "${CMAKE_SOURCE_DIR}/deploy/linux/AppRun" CACHE FILEPATH "AppImage AppRun Path")
+ set(QGC_APPIMAGE_DESKTOP_ENTRY_PATH "${CMAKE_SOURCE_DIR}/deploy/linux/org.mavlink.qgroundcontrol.desktop.in" CACHE FILEPATH "AppImage Desktop Entry Path")
+ set(QGC_APPIMAGE_METADATA_PATH "${CMAKE_SOURCE_DIR}/deploy/linux/org.mavlink.qgroundcontrol.appdata.xml.in" CACHE FILEPATH "AppImage Metadata Path")
+ set(QGC_APPIMAGE_APPDATA_DEVELOPER "qgroundcontrol" CACHE STRING "AppImage Metadata Developer")
+ 
+ # Windows
+ set(QGC_WINDOWS_INSTALL_HEADER_PATH "${CMAKE_SOURCE_DIR}/deploy/windows/installheader.bmp" CACHE FILEPATH "Windows Install Header Path")
+ set(QGC_WINDOWS_ICON_PATH "${CMAKE_SOURCE_DIR}/deploy/windows/ANELLO.ico" CACHE FILEPATH "Windows Icon Path")
+ set(QGC_WINDOWS_RESOURCE_FILE_PATH "${CMAKE_SOURCE_DIR}/deploy/windows/QGroundControl.rc" CACHE FILEPATH "Windows Resource File Path")
+ 
+ # CPM
+ set(QGC_CPM_SOURCE_CACHE "" CACHE PATH "Directory to Download CPM Dependencies, Overrides CPM_SOURCE_CACHE Env Variable")
+diff --git a/cmake/PrintSummary.cmake b/cmake/PrintSummary.cmake
+index 02d0803dfdad573e106439e4632a07b9bcacb457..c747785552fb370f1092845a7a760d80a24cd99b 100644
+--- a/cmake/PrintSummary.cmake
++++ b/cmake/PrintSummary.cmake
+@@ -48,53 +48,50 @@ message(STATUS "----------------------------------------------------------------
+ message(STATUS "-- Application ------------------------------------------------------")
+ message(STATUS "App Name:             ${QGC_APP_NAME}")
+ message(STATUS "Description:          ${QGC_APP_DESCRIPTION}")
+ message(STATUS "Copyright:            ${QGC_APP_COPYRIGHT}")
+ message(STATUS "Organization:         ${QGC_ORG_NAME} (${QGC_ORG_DOMAIN})")
+ message(STATUS "Package name:         ${QGC_PACKAGE_NAME}")
+ message(STATUS "Settings version:     ${QGC_SETTINGS_VERSION}")
+ message(STATUS "------------------------------------------------------------------")
+ 
+ # ----------------------------------------------------------------------------
+ # Option flags
+ # ----------------------------------------------------------------------------
+ message(STATUS "-- Build & Feature Flags -------------------------------------------")
+ OptionOutput("Build shared libraries"                 BUILD_SHARED_LIBS)
+ OptionOutput("Stable build"                           QGC_STABLE_BUILD)
+ OptionOutput("Use build caching"                      QGC_USE_CACHE)
+ OptionOutput("Enable testing"                         QGC_BUILD_TESTING)
+ OptionOutput("Enable QML debugging"                   QGC_DEBUG_QML)
+ OptionOutput("Enable Herelink support"                QGC_ENABLE_HERELINK)
+ OptionOutput("Enable UTM Adapter"                     QGC_UTM_ADAPTER)
+ OptionOutput("Enable 3D Viewer"                       QGC_VIEWER3D)
+ OptionOutput("Enable Bluetooth links"                 QGC_ENABLE_BLUETOOTH)
+ OptionOutput("Enable ZeroConf compatibility"          QGC_ZEROCONF_ENABLED)
+ OptionOutput("Disable AIRLink"                        QGC_AIRLINK_DISABLED)
+ OptionOutput("Disable serial links"                   QGC_NO_SERIAL_LINK)
+-OptionOutput("Enable UVC devices"                     QGC_ENABLE_UVC)
+-OptionOutput("Enable GStreamer video"                 QGC_ENABLE_GST_VIDEOSTREAMING)
+-OptionOutput("Enable Qt video backend"                QGC_ENABLE_QT_VIDEOSTREAMING)
+ OptionOutput("Disable APM MAVLink dialect"            QGC_DISABLE_APM_MAVLINK)
+ OptionOutput("Disable APM plugin"                     QGC_DISABLE_APM_PLUGIN)
+ OptionOutput("Disable APM plugin factory"             QGC_DISABLE_APM_PLUGIN_FACTORY)
+ OptionOutput("Disable PX4 plugin"                     QGC_DISABLE_PX4_PLUGIN)
+ OptionOutput("Disable PX4 plugin factory"             QGC_DISABLE_PX4_PLUGIN_FACTORY)
+ message(STATUS "------------------------------------------------------------------")
+ 
+ # ----------------------------------------------------------------------------
+ # Repository & dependency settings
+ # ----------------------------------------------------------------------------
+ message(STATUS "-- External Dependencies -------------------------------------------")
+ message(STATUS "MAVLink repo URL:     ${QGC_MAVLINK_GIT_REPO}")
+ message(STATUS "MAVLink repo tag:     ${QGC_MAVLINK_GIT_TAG}")
+ message(STATUS "CPM cache directory:  ${QGC_CPM_SOURCE_CACHE}")
+ message(STATUS "QML output directory: ${QT_QML_OUTPUT_DIRECTORY}")
+ message(STATUS "------------------------------------------------------------------")
+ 
+ # ----------------------------------------------------------------------------
+ # Platform-specific settings
+ # ----------------------------------------------------------------------------
+ if(ANDROID)
+   message(STATUS "-- Android ---------------------------------------------------------")
+   message(STATUS "Target SDK:           ${QGC_QT_ANDROID_TARGET_SDK_VERSION}")
+   message(STATUS "Package source dir:   ${QGC_ANDROID_PACKAGE_SOURCE_DIR}")
+   message(STATUS "APK signing:          ${QT_ANDROID_SIGN_APK} / AAB signing: ${QT_ANDROID_SIGN_AAB}")
+diff --git a/cmake/find-modules/FindGStreamer.cmake b/cmake/find-modules/FindGStreamer.cmake
+deleted file mode 100644
+index 3feb56093ebf222dbe1c4a65e694e2089d9eb88d..0000000000000000000000000000000000000000
+--- a/cmake/find-modules/FindGStreamer.cmake
++++ /dev/null
+@@ -1,455 +0,0 @@
+-if(NOT DEFINED GStreamer_FIND_VERSION)
+-    if(LINUX)
+-        set(GStreamer_FIND_VERSION 1.20)
+-    else()
+-        set(GStreamer_FIND_VERSION 1.22.12)
+-    endif()
+-endif()
+-
+-if(NOT DEFINED GStreamer_ROOT_DIR)
+-    if(DEFINED GSTREAMER_ROOT)
+-        set(GStreamer_ROOT_DIR ${GSTREAMER_ROOT})
+-    elseif(DEFINED GStreamer_ROOT)
+-        set(GStreamer_ROOT_DIR ${GStreamer_ROOT})
+-    endif()
+-
+-    if(DEFINED GStreamer_ROOT_DIR AND NOT EXISTS "${GStreamer_ROOT_DIR}")
+-        message(STATUS "The user provided GStreamer directory does not exist: ${GStreamer_ROOT_DIR}")
+-    endif()
+-endif()
+-
+-if(NOT DEFINED GStreamer_USE_STATIC_LIBS)
+-    if(ANDROID OR IOS)
+-        set(GStreamer_USE_STATIC_LIBS ON)
+-    else()
+-        set(GStreamer_USE_STATIC_LIBS OFF)
+-    endif()
+-endif()
+-
+-if(NOT DEFINED GStreamer_USE_FRAMEWORK)
+-    if(APPLE)
+-        set(GStreamer_USE_FRAMEWORK ON)
+-    else()
+-        set(GStreamer_USE_FRAMEWORK OFF)
+-    endif()
+-endif()
+-
+-################################################################################
+-
+-set(PKG_CONFIG_ARGN)
+-
+-if(WIN32)
+-    if(NOT DEFINED GStreamer_ROOT_DIR)
+-        if(DEFINED ENV{GSTREAMER_1_0_ROOT_X86_64} AND EXISTS "$ENV{GSTREAMER_1_0_ROOT_X86_64}")
+-            set(GStreamer_ROOT_DIR "$ENV{GSTREAMER_1_0_ROOT_X86_64}")
+-        elseif(MSVC AND DEFINED ENV{GSTREAMER_1_0_ROOT_MSVC_X86_64} AND EXISTS "$ENV{GSTREAMER_1_0_ROOT_MSVC_X86_64}")
+-            set(GStreamer_ROOT_DIR "$ENV{GSTREAMER_1_0_ROOT_MSVC_X86_64}")
+-        elseif(MINGW AND DEFINED ENV{GSTREAMER_1_0_ROOT_MINGW_X86_64} AND EXISTS "$ENV{GSTREAMER_1_0_ROOT_MINGW_X86_64}")
+-            set(GStreamer_ROOT_DIR "$ENV{GSTREAMER_1_0_ROOT_MINGW_X86_64}")
+-        elseif(EXISTS "C:/Program Files/gstreamer/1.0/msvc_x86_64")
+-            set(GStreamer_ROOT_DIR "C:/Program Files/gstreamer/1.0/msvc_x86_64")
+-        elseif(EXISTS "C:/gstreamer/1.0/msvc_x86_64")
+-            set(GStreamer_ROOT_DIR "C:/gstreamer/1.0/msvc_x86_64")
+-        endif()
+-    endif()
+-
+-    cmake_path(CONVERT "${GStreamer_ROOT_DIR}" TO_CMAKE_PATH_LIST GStreamer_ROOT_DIR NORMALIZE)
+-    if(NOT EXISTS "${GStreamer_ROOT_DIR}")
+-        message(FATAL_ERROR "Could not locate GStreamer - check installation or set environment/cmake variables")
+-    endif()
+-
+-    set(GSTREAMER_LIB_PATH "${GStreamer_ROOT_DIR}/lib")
+-    set(GSTREAMER_PLUGIN_PATH "${GSTREAMER_LIB_PATH}/gstreamer-1.0")
+-    set(GSTREAMER_INCLUDE_PATH "${GStreamer_ROOT_DIR}/include")
+-
+-    set(ENV{PKG_CONFIG} "${GStreamer_ROOT_DIR}/bin")
+-    set(PKG_CONFIG_EXECUTABLE "$ENV{PKG_CONFIG}/pkg-config.exe")
+-    set(ENV{PKG_CONFIG_PATH} "${GSTREAMER_LIB_PATH}/pkgconfig;${GSTREAMER_PLUGIN_PATH}/pkgconfig;$ENV{PKG_CONFIG_PATH}")
+-    list(APPEND PKG_CONFIG_ARGN
+-        --dont-define-prefix
+-        --define-variable=prefix=${GStreamer_ROOT_DIR}
+-        --define-variable=libdir=${GSTREAMER_LIB_PATH}
+-        --define-variable=includedir=${GSTREAMER_INCLUDE_PATH}
+-    )
+-elseif(LINUX)
+-    if(NOT DEFINED GStreamer_ROOT_DIR)
+-        if(EXISTS "/usr")
+-            set(GStreamer_ROOT_DIR "/usr")
+-        endif()
+-    endif()
+-
+-    cmake_path(CONVERT "${GStreamer_ROOT_DIR}" TO_CMAKE_PATH_LIST GStreamer_ROOT_DIR NORMALIZE)
+-    if(NOT EXISTS "${GStreamer_ROOT_DIR}")
+-        message(FATAL_ERROR "Could not locate GStreamer - check installation or set environment/cmake variables")
+-    endif()
+-
+-    if((EXISTS "${GStreamer_ROOT_DIR}/lib/${CMAKE_SYSTEM_PROCESSOR}-linux-gnu" ) AND (EXISTS "${GStreamer_ROOT_DIR}/lib/${CMAKE_SYSTEM_PROCESSOR}-linux-gnu/gstreamer-1.0"))
+-        set(GSTREAMER_LIB_PATH "${GStreamer_ROOT_DIR}/lib/${CMAKE_SYSTEM_PROCESSOR}-linux-gnu")
+-    elseif(EXISTS "${GStreamer_ROOT_DIR}/lib")
+-        set(GSTREAMER_LIB_PATH "${GStreamer_ROOT_DIR}/lib")
+-    else()
+-        message(FATAL_ERROR "Could not locate GStreamer - check installation or set environment/cmake variables")
+-    endif()
+-
+-    set(GSTREAMER_PLUGIN_PATH "${GSTREAMER_LIB_PATH}/gstreamer-1.0")
+-    set(GSTREAMER_INCLUDE_PATH "${GStreamer_ROOT_DIR}/include")
+-
+-    set(ENV{PKG_CONFIG_PATH} "${GSTREAMER_LIB_PATH}/pkgconfig:$ENV{PKG_CONFIG_PATH}")
+-elseif(ANDROID)
+-    if(QGC_CUSTOM_GST_PACKAGE)
+-        set(_gst_android_url "https://qgroundcontrol.s3.us-west-2.amazonaws.com/android-gstreamer/qgc-android-gstreamer-${GStreamer_FIND_VERSION}.tar.xz")
+-    else()
+-        set(_gst_android_url "https://gstreamer.freedesktop.org/data/pkg/android/${GStreamer_FIND_VERSION}/gstreamer-1.0-android-universal-${GStreamer_FIND_VERSION}.tar.xz")
+-        # https://gstreamer.freedesktop.org/data/pkg/android/${GStreamer_FIND_VERSION}/gstreamer-1.0-android-universal-${GStreamer_FIND_VERSION}.tar.xz.sha256sum
+-        # set(_gst_android_url_hash "be92cf477d140c270b480bd8ba0e26b1e01c8db042c46b9e234d87352112e485")
+-    endif()
+-
+-    CPMAddPackage(
+-        NAME gstreamer
+-        VERSION ${GStreamer_FIND_VERSION}
+-        URL ${_gst_android_url}
+-        # URL_HASH ${_gst_android_url_hash}
+-    )
+-
+-    if(NOT DEFINED GStreamer_ROOT_DIR)
+-        if(CMAKE_ANDROID_ARCH_ABI STREQUAL "armeabi-v7a")
+-            set(GStreamer_ROOT_DIR "${gstreamer_SOURCE_DIR}/armv7")
+-        elseif(CMAKE_ANDROID_ARCH_ABI STREQUAL "arm64-v8a")
+-            set(GStreamer_ROOT_DIR "${gstreamer_SOURCE_DIR}/arm64")
+-        elseif(CMAKE_ANDROID_ARCH_ABI STREQUAL "x86")
+-            set(GStreamer_ROOT_DIR "${gstreamer_SOURCE_DIR}/x86")
+-        elseif(CMAKE_ANDROID_ARCH_ABI STREQUAL "x86_64")
+-            set(GStreamer_ROOT_DIR "${gstreamer_SOURCE_DIR}/x86_64")
+-        endif()
+-    endif()
+-
+-    cmake_path(CONVERT "${GStreamer_ROOT_DIR}" TO_CMAKE_PATH_LIST GStreamer_ROOT_DIR NORMALIZE)
+-    if(NOT EXISTS "${GStreamer_ROOT_DIR}")
+-        message(FATAL_ERROR "Could not locate GStreamer - check installation or set environment/cmake variables")
+-    endif()
+-
+-    set(GSTREAMER_LIB_PATH "${GStreamer_ROOT_DIR}/lib")
+-    set(GSTREAMER_PLUGIN_PATH "${GSTREAMER_LIB_PATH}/gstreamer-1.0")
+-    set(GSTREAMER_INCLUDE_PATH "${GStreamer_ROOT_DIR}/include")
+-
+-    set(ENV{PKG_CONFIG_PATH} "")
+-    if(CMAKE_HOST_WIN32)
+-        set(ENV{PKG_CONFIG} "${GStreamer_ROOT_DIR}/share/gst-android/ndk-build/tools/windows")
+-        set(PKG_CONFIG_EXECUTABLE "$ENV{PKG_CONFIG}/pkg-config.exe")
+-        set(ENV{PKG_CONFIG_LIBDIR} "${GSTREAMER_LIB_PATH}/pkgconfig;${GSTREAMER_PLUGIN_PATH}/pkgconfig")
+-        list(APPEND PKG_CONFIG_ARGN --dont-define-prefix)
+-    elseif(CMAKE_HOST_UNIX)
+-        set(ENV{PKG_CONFIG_LIBDIR} "${GSTREAMER_LIB_PATH}/pkgconfig:${GSTREAMER_PLUGIN_PATH}/pkgconfig")
+-    endif()
+-    list(APPEND PKG_CONFIG_ARGN
+-        --define-variable=prefix=${GStreamer_ROOT_DIR}
+-        --define-variable=libdir=${GSTREAMER_LIB_PATH}
+-        --define-variable=includedir=${GSTREAMER_INCLUDE_PATH}
+-    )
+-elseif(MACOS)
+-    if(NOT DEFINED GStreamer_ROOT_DIR)
+-        if(EXISTS "/Library/Frameworks/GStreamer.framework")
+-            set(GStreamer_ROOT_DIR "/Library/Frameworks/GStreamer.framework/Versions/1.0")
+-        elseif(EXISTS "/opt/homebrew/opt/gstreamer")
+-            set(GStreamer_ROOT_DIR "/opt/homebrew/opt/gstreamer")
+-        elseif(EXISTS "/usr/local/opt/gstreamer")
+-            set(GStreamer_ROOT_DIR "/usr/local/opt/gstreamer")
+-        endif()
+-    endif()
+-
+-    cmake_path(CONVERT "${GStreamer_ROOT_DIR}" TO_CMAKE_PATH_LIST GStreamer_ROOT_DIR NORMALIZE)
+-    if(NOT EXISTS "${GStreamer_ROOT_DIR}")
+-        message(FATAL_ERROR "Could not locate GStreamer - check installation or set environment/cmake variables")
+-    endif()
+-
+-    if(GStreamer_USE_FRAMEWORK)
+-        set(GSTREAMER_FRAMEWORK_PATH "${GStreamer_ROOT_DIR}/../..")
+-    endif()
+-
+-    set(GSTREAMER_INCLUDE_PATH "${GStreamer_ROOT_DIR}/include")
+-    set(GSTREAMER_LIB_PATH "${GStreamer_ROOT_DIR}/lib")
+-    set(GSTREAMER_PLUGIN_PATH "${GSTREAMER_LIB_PATH}/gstreamer-1.0")
+-
+-    set(ENV{PKG_CONFIG} "${GStreamer_ROOT_DIR}/bin")
+-    set(PKG_CONFIG_EXECUTABLE "$ENV{PKG_CONFIG}/pkg-config")
+-    set(ENV{PKG_CONFIG_PATH} "${GSTREAMER_LIB_PATH}/pkgconfig:${GSTREAMER_PLUGIN_PATH}/pkgconfig:$ENV{PKG_CONFIG_PATH}")
+-    list(APPEND PKG_CONFIG_ARGN
+-        --dont-define-prefix
+-        --define-variable=prefix=${GStreamer_ROOT_DIR}
+-        --define-variable=libdir=${GSTREAMER_LIB_PATH}
+-        --define-variable=includedir=${GSTREAMER_INCLUDE_PATH}
+-    )
+-elseif(IOS)
+-    message(FATAL_ERROR "GStreamer for iOS is Currently Unsupported.")
+-
+-    CPMAddPackage(
+-        NAME gstreamer
+-        VERSION ${GStreamer_FIND_VERSION}
+-        URL "https://gstreamer.freedesktop.org/data/pkg/ios/${GStreamer_FIND_VERSION}/gstreamer-1.0-devel-${GStreamer_FIND_VERSION}-ios-universal.pkg"
+-    )
+-
+-    set(GST_PKG_FILE "${gstreamer_SOURCE_DIR}/gstreamer.pkg")
+-    set(GST_EXPAND_DIR "${gstreamer_SOURCE_DIR}/gstreamer-pkg-expanded")
+-    set(GST_PAYLOAD_DIR "${GST_EXPAND_DIR}/Payload")
+-
+-    file(MAKE_DIRECTORY "${GST_EXPAND_DIR}")
+-    execute_process(
+-        COMMAND pkgutil --expand-full "${GST_PKG_FILE}" "${GST_EXPAND_DIR}"
+-        RESULT_VARIABLE _pkgutil_rc
+-    )
+-    if(NOT _pkgutil_rc EQUAL 0)
+-        message(FATAL_ERROR "pkgutil failed to expand GStreamer .pkg")
+-    endif()
+-
+-    execute_process(
+-        COMMAND xar -xf "${GST_EXPAND_DIR}/gstreamer-1.0-devel-${GStreamer_FIND_VERSION}-ios-universal.pkg/Payload"
+-                --directory "${GST_PAYLOAD_DIR}"
+-        RESULT_VARIABLE _xar_rc
+-    )
+-    if(NOT _xar_rc EQUAL 0)
+-        message(FATAL_ERROR "xar failed to extract GStreamer Payload")
+-    endif()
+-
+-    # set(GSTREAMER_FRAMEWORK_PATH "/Library/Developer/GStreamer/iPhone.sdk" CACHE PATH "Path of GStreamer.Framework")
+-    set(GSTREAMER_FRAMEWORK_PATH "${GST_PAYLOAD_DIR}/usr/local/Frameworks/GStreamer.framework")
+-
+-    set(GStreamer_ROOT_DIR "${GSTREAMER_FRAMEWORK_PATH}/Versions/1.0")
+-
+-    if(NOT EXISTS "${GStreamer_ROOT_DIR}")
+-        message(FATAL_ERROR "Could not locate GStreamer - check installation or set environment/cmake variables")
+-    endif()
+-
+-    set(GSTREAMER_INCLUDE_PATH "${GSTREAMER_FRAMEWORK_PATH}/Headers")
+-endif()
+-
+-if(NOT EXISTS "${GStreamer_ROOT_DIR}" OR NOT EXISTS "${GSTREAMER_LIB_PATH}" OR NOT EXISTS "${GSTREAMER_PLUGIN_PATH}" OR NOT EXISTS "${GSTREAMER_INCLUDE_PATH}")
+-    message(FATAL_ERROR "Could not locate GStreamer - check installation or set environment/cmake variables")
+-endif()
+-
+-if(GStreamer_USE_FRAMEWORK AND NOT EXISTS "${GSTREAMER_FRAMEWORK_PATH}")
+-    message(FATAL_ERROR "Could not locate GStreamer - check installation or set environment/cmake variables")
+-endif()
+-
+-################################################################################
+-
+-if(GStreamer_USE_STATIC_LIBS)
+-    set(GSTREAMER_EXTRA_DEPS
+-        gstreamer-base-1.0
+-        gstreamer-video-1.0
+-        gstreamer-gl-1.0
+-        gstreamer-gl-prototypes-1.0
+-        gstreamer-rtsp-1.0
+-        # gstreamer-gl-egl-1.0
+-        # gstreamer-gl-wayland-1.0
+-        # gstreamer-gl-x11-1.0
+-    )
+-
+-    set(GSTREAMER_PLUGINS
+-        coreelements
+-        dav1d
+-        isomp4
+-        libav
+-        matroska
+-        mpegtsdemux
+-        opengl
+-        openh264
+-        playback
+-        rtp
+-        rtpmanager
+-        rtsp
+-        sdpelem
+-        tcp
+-        typefindfunctions
+-        udp
+-        videoparsersbad
+-        vpx
+-    )
+-    if(ANDROID)
+-        list(APPEND GSTREAMER_PLUGINS androidmedia) # vulkan
+-    elseif(APPLE)
+-        list(APPEND GSTREAMER_PLUGINS applemedia vulkan)
+-    elseif(WIN32)
+-        list(APPEND GSTREAMER_PLUGINS d3d d3d11 d3d12 dxva nvcodec)
+-    elseif(LINUX)
+-        list(APPEND GSTREAMER_PLUGINS nvcodec qsv va vulkan) # qml6 - GStreamer provided qml6 is xcb only
+-    endif()
+-endif()
+-
+-if(ANDROID)
+-    set(GStreamer_Mobile_MODULE_NAME gstreamer_android)
+-    set(G_IO_MODULES openssl)
+-    set(G_IO_MODULES_PATH "${GStreamer_ROOT_DIR}/lib/gio/modules")
+-
+-    set(GStreamer_NDK_BUILD_PATH  "${GStreamer_ROOT_DIR}/share/gst-android/ndk-build/")
+-    set(GSTREAMER_ANDROID_MODULE_NAME gstreamer_android)
+-    set(GSTREAMER_JAVA_SRC_DIR "${CMAKE_BINARY_DIR}/android-build-${CMAKE_PROJECT_NAME}/src")
+-    set(GSTREAMER_ASSETS_DIR "${CMAKE_BINARY_DIR}/android-build-${CMAKE_PROJECT_NAME}/assets")
+-
+-    configure_file(
+-        "${GStreamer_NDK_BUILD_PATH}/gstreamer_android-1.0.c.in"
+-        "${GStreamer_Mobile_MODULE_NAME}.c"
+-    )
+-endif()
+-
+-################################################################################
+-
+-if(GStreamer_USE_FRAMEWORK)
+-    list(APPEND CMAKE_FRAMEWORK_PATH "${GSTREAMER_FRAMEWORK_PATH}")
+-endif()
+-
+-if(GStreamer_USE_STATIC_LIBS)
+-    list(APPEND PKG_CONFIG_ARGN "--static")
+-endif()
+-
+-find_package(PkgConfig REQUIRED QUIET)
+-
+-list(PREPEND CMAKE_PREFIX_PATH ${GStreamer_ROOT_DIR})
+-if(LINUX)
+-    pkg_check_modules(PC_GSTREAMER REQUIRED gstreamer-1.0>=${GStreamer_FIND_VERSION})
+-else()
+-    pkg_check_modules(PC_GSTREAMER REQUIRED gstreamer-1.0=${GStreamer_FIND_VERSION})
+-endif()
+-set(GStreamer_VERSION "${PC_GSTREAMER_VERSION}")
+-
+-################################################################################
+-
+-function(find_gstreamer_component component pkgconfig_name)
+-    set(target GStreamer::${component})
+-
+-    if(NOT TARGET ${target})
+-        string(TOUPPER ${component} upper)
+-        pkg_check_modules(PC_GSTREAMER_${upper} IMPORTED_TARGET ${pkgconfig_name})
+-        if(TARGET PkgConfig::PC_GSTREAMER_${upper})
+-            qt_add_library(GStreamer::${component} INTERFACE IMPORTED)
+-            target_link_libraries(GStreamer::${component} INTERFACE PkgConfig::PC_GSTREAMER_${upper})
+-            if("PC_GSTREAMER_${upper}" MATCHES "PC_GSTREAMER_GL")
+-                get_target_property(_qt_incs PkgConfig::PC_GSTREAMER_GL INTERFACE_INCLUDE_DIRECTORIES)
+-                set(__qt_fixed_incs)
+-                foreach(path IN LISTS _qt_incs)
+-                    if(IS_DIRECTORY "${path}")
+-                        list(APPEND __qt_fixed_incs "${path}")
+-                    endif()
+-                endforeach()
+-                set_property(TARGET PkgConfig::PC_GSTREAMER_GL PROPERTY INTERFACE_INCLUDE_DIRECTORIES "${__qt_fixed_incs}")
+-            endif()
+-        endif()
+-    endif()
+-
+-    if(TARGET ${target})
+-        set(GStreamer_${component}_FOUND TRUE PARENT_SCOPE)
+-    endif()
+-endfunction()
+-
+-################################################################################
+-
+-find_gstreamer_component(Core gstreamer-1.0)
+-find_gstreamer_component(Base gstreamer-base-1.0)
+-find_gstreamer_component(Video gstreamer-video-1.0)
+-find_gstreamer_component(Gl gstreamer-gl-1.0)
+-find_gstreamer_component(GlPrototypes gstreamer-gl-prototypes-1.0)
+-find_gstreamer_component(Rtsp gstreamer-rtsp-1.0)
+-
+-################################################################################
+-
+-if(GlEgl IN_LIST GStreamer_FIND_COMPONENTS)
+-    find_gstreamer_component(GlEgl gstreamer-gl-egl-1.0)
+-endif()
+-
+-if(GlWayland IN_LIST GStreamer_FIND_COMPONENTS)
+-    find_gstreamer_component(GlWayland gstreamer-gl-wayland-1.0)
+-endif()
+-
+-if(GlX11 IN_LIST GStreamer_FIND_COMPONENTS)
+-    find_gstreamer_component(GlX11 gstreamer-gl-x11-1.0)
+-endif()
+-
+-################################################################################
+-
+-include(FindPackageHandleStandardArgs)
+-find_package_handle_standard_args(GStreamer
+-    VERSION_VAR GStreamer_VERSION
+-    HANDLE_COMPONENTS
+-)
+-
+-if(GStreamer_FOUND AND NOT TARGET GStreamer::GStreamer)
+-    qt_add_library(GStreamer::GStreamer INTERFACE IMPORTED)
+-
+-    if(GStreamer_USE_STATIC_LIBS)
+-        target_compile_definitions(GStreamer::GStreamer INTERFACE QGC_GST_STATIC_BUILD)
+-    endif()
+-
+-    if(APPLE AND GStreamer_USE_FRAMEWORK)
+-        set(CMAKE_FIND_FRAMEWORK ONLY)
+-        find_library(GSTREAMER_FRAMEWORK GStreamer
+-            PATHS
+-                "${GSTREAMER_FRAMEWORK_PATH}"
+-                "/Library/Frameworks"
+-                "/usr/local/opt/gstreamer"
+-                "/opt/homebrew/opt/gstreamer"
+-        )
+-        unset(CMAKE_FIND_FRAMEWORK)
+-        if(GSTREAMER_FRAMEWORK)
+-            target_link_libraries(GStreamer::GStreamer INTERFACE ${GSTREAMER_FRAMEWORK})
+-            target_include_directories(GStreamer::GStreamer INTERFACE "${GSTREAMER_FRAMEWORK}/Headers")
+-            if(MACOS)
+-                target_compile_definitions(GStreamer::GStreamer INTERFACE QGC_GST_MACOS_FRAMEWORK)
+-            endif()
+-            return()
+-        else()
+-            message(FATAL_ERROR "Could not locate GStreamer - check installation or set environment/cmake variables")
+-        endif()
+-    elseif(ANDROID)
+-        target_link_options(GStreamer::GStreamer INTERFACE "-Wl,-Bsymbolic")
+-        if(CMAKE_SIZEOF_VOID_P EQUAL 4)
+-            target_link_options(GStreamer::GStreamer INTERFACE "-Wl,-z,notext")
+-        endif()
+-    endif()
+-
+-    target_link_directories(GStreamer::GStreamer INTERFACE ${GSTREAMER_LIB_PATH})
+-
+-    target_link_libraries(GStreamer::GStreamer
+-        INTERFACE
+-            GStreamer::Core
+-            GStreamer::Base
+-            GStreamer::Video
+-            GStreamer::Gl
+-            GStreamer::GlPrototypes
+-            GStreamer::Rtsp
+-    )
+-
+-    foreach(component IN LISTS GStreamer_FIND_COMPONENTS)
+-        if(GStreamer_${component}_FOUND)
+-            target_link_libraries(GStreamer::GStreamer INTERFACE GStreamer::${component})
+-        endif()
+-    endforeach()
+-
+-################################################################################
+-
+-    if(GStreamer_USE_STATIC_LIBS)
+-        qt_add_library(GStreamer::Plugins INTERFACE IMPORTED)
+-        target_link_directories(GStreamer::Plugins INTERFACE ${GSTREAMER_PLUGIN_PATH})
+-
+-        foreach(plugin IN LISTS GSTREAMER_PLUGINS)
+-            pkg_check_modules(GST_PLUGIN_${plugin} QUIET IMPORTED_TARGET gst${plugin})
+-            if(GST_PLUGIN_${plugin}_FOUND)
+-                target_link_libraries(GStreamer::Plugins INTERFACE PkgConfig::GST_PLUGIN_${plugin})
+-            else()
+-                find_library(GST_PLUGIN_${plugin}_LIBRARY
+-                    NAMES gst${plugin}
+-                    PATHS
+-                        ${GSTREAMER_LIB_PATH}
+-                        ${GSTREAMER_PLUGIN_PATH}
+-                )
+-                if(GST_PLUGIN_${plugin}_LIBRARY)
+-                    target_link_libraries(GStreamer::Plugins INTERFACE ${GST_PLUGIN_${plugin}_LIBRARY})
+-                    set(GST_PLUGIN_${plugin}_FOUND TRUE)
+-                endif()
+-            endif()
+-            if(GST_PLUGIN_${plugin}_FOUND)
+-                target_compile_definitions(GStreamer::Plugins INTERFACE GST_PLUGIN_${plugin}_FOUND)
+-            endif()
+-        endforeach()
+-
+-        target_link_libraries(GStreamer::GStreamer INTERFACE GStreamer::Plugins)
+-    endif()
+-endif()
+diff --git a/cmake/find-modules/_FindGStreamer.cmake b/cmake/find-modules/_FindGStreamer.cmake
+deleted file mode 100644
+index 8d858bed8238196262647ad64d85bbfee26b0127..0000000000000000000000000000000000000000
+--- a/cmake/find-modules/_FindGStreamer.cmake
++++ /dev/null
+@@ -1,456 +0,0 @@
+-# SPDX-FileCopyrightText: 2024 L. E. Segovia <amy@centricular.com>
+-# SPDX-License-Ref: LGPL-2.1-or-later
+-
+-#[=======================================================================[.rst:
+-FindGStreamer
+--------
+-
+-Finds the GStreamer library. Requires ``pkg-config`` to be installed.
+-
+-Configuration
+-^^^^^^^^^^^^^
+-
+-This module can be configured with the following variables:
+-
+-``GStreamer_STATIC``
+-  Link against GStreamer statically (see below).
+-
+-Imported Targets
+-^^^^^^^^^^^^^^^^
+-
+-This module defines the following :prop_tgt:`IMPORTED` targets:
+-
+-``GStreamer::GStreamer``
+-  The GStreamer library.
+-
+-Result Variables
+-^^^^^^^^^^^^^^^^
+-
+-This will define the following variables:
+-
+-``GStreamer_FOUND``
+-  True if the system has the GStreamer library.
+-``GStreamer_VERSION``
+-  The version of the GStreamer library which was found.
+-``GStreamer_INCLUDE_DIRS``
+-  Include directories needed to use GStreamer.
+-``GStreamer_LIBRARIES``
+-  Libraries needed to link to GStreamer.
+-
+-Cache Variables
+-^^^^^^^^^^^^^^^
+-
+-The following cache variables may also be set:
+-
+-``GStreamer_INCLUDE_DIR``
+-  The directory containing ``gst/gstversion.h``.
+-``GStreamer_LIBRARY``
+-  The path to the GStreamer library.
+-
+-Configuration Variables
+-^^^^^^^^^^^^^^^
+-
+-Setting the following variables is required, depending on the operating system:
+-
+-``GStreamer_ROOT_DIR``
+-  Installation prefix of the GStreamer SDK.
+-
+-``GStreamer_USE_STATIC_LIBS`
+-  Set to ON to force the use of the static libraries. Default is OFF.
+-
+-``GStreamer_EXTRA_DEPS``
+-  pkg-config names of the extra dependencies that will be included whenever linking against GStreamer.
+-
+-#]=======================================================================]
+-
+-if (GStreamer_FOUND)
+-    return()
+-endif()
+-
+-#####################
+-#  Setup variables  #
+-#####################
+-
+-if (NOT DEFINED GStreamer_ROOT_DIR AND DEFINED GSTREAMER_ROOT)
+-    set(GStreamer_ROOT_DIR ${GSTREAMER_ROOT})
+-endif()
+-
+-if (NOT GStreamer_ROOT_DIR)
+-    set(GStreamer_ROOT_DIR "${CMAKE_CURRENT_LIST_DIR}/../../")
+-endif()
+-
+-if (NOT EXISTS "${GStreamer_ROOT_DIR}")
+-    message(FATAL_ERROR "The directory GStreamer_ROOT_DIR=${GStreamer_ROOT_DIR} does not exist")
+-endif()
+-
+-if (NOT DEFINED GStreamer_USE_STATIC_LIBS)
+-set(GStreamer_USE_STATIC_LIBS OFF)
+-endif()
+-
+-# Set the environment for pkg-config
+-if (WIN32)
+-    set(ENV{PKG_CONFIG_PATH} "${GStreamer_ROOT_DIR}/lib/pkgconfig;${GStreamer_ROOT_DIR}/lib/gstreamer-1.0/pkgconfig;${GStreamer_ROOT_DIR}/lib/gio/modules/pkgconfig")
+-else()
+-    set(ENV{PKG_CONFIG_PATH} "${GStreamer_ROOT_DIR}/lib/pkgconfig:${GStreamer_ROOT_DIR}/lib/gstreamer-1.0/pkgconfig:${GStreamer_ROOT_DIR}/lib/gio/modules/pkgconfig")
+-endif()
+-
+-# Set the list of extra dependencies
+-if (NOT DEFINED GStreamer_EXTRA_DEPS)
+-    set(GStreamer_EXTRA_DEPS)
+-    if (DEFINED GSTREAMER_EXTRA_DEPS)
+-        set(GStreamer_EXTRA_DEPS ${GSTREAMER_EXTRA_DEPS})
+-    endif()
+-endif()
+-
+-# Find libraries. This is meant to be used with static libraries
+-# (hence the reprioritization) but I've added a fallback to shared libraries
+-# and stub modules in case any are non-existent.
+-function(_gst_find_library LOCAL_LIB GST_LOCAL_LIB)
+-    if (DEFINED ${GST_LOCAL_LIB})
+-        return()
+-    endif()
+-
+-    set(_gst_suffixes ${CMAKE_FIND_LIBRARY_SUFFIXES})
+-    set(_gst_prefixes ${CMAKE_FIND_LIBRARY_PREFIXES})
+-    if (APPLE)
+-        set(CMAKE_FIND_LIBRARY_SUFFIXES ".a" ".dylib" ".so" ".tbd")
+-        set(CMAKE_FIND_LIBRARY_PREFIXES "" "lib")
+-    elseif (UNIX)
+-        set(CMAKE_FIND_LIBRARY_SUFFIXES ".a" ".so")
+-        set(CMAKE_FIND_LIBRARY_PREFIXES "" "lib")
+-    else()
+-        set(CMAKE_FIND_LIBRARY_SUFFIXES ".a" ".lib")
+-        set(CMAKE_FIND_LIBRARY_PREFIXES "" "lib")
+-    endif()
+-
+-    if ("${LOCAL_LIB}" IN_LIST _gst_IGNORED_SYSTEM_LIBRARIES)
+-        set(${GST_LOCAL_LIB} ${LOCAL_LIB} PARENT_SCOPE)
+-    else()
+-        find_library(${GST_LOCAL_LIB}
+-            ${LOCAL_LIB}
+-            HINTS ${ARGN}
+-            NO_DEFAULT_PATH
+-            NO_CMAKE_FIND_ROOT_PATH
+-            REQUIRED
+-        )
+-        set(${GST_LOCAL_LIB} "${${GST_LOCAL_LIB}}" PARENT_SCOPE)
+-        if (NOT ${GST_LOCAL_LIB})
+-            message(FATAL_ERROR "${LOCAL_LIB} was unexpectedly not found.")
+-        endif()
+-    endif()
+-
+-    set(CMAKE_FIND_LIBRARY_SUFFIXES ${_gst_suffixes})
+-    set(CMAKE_FIND_LIBRARY_PREFIXES ${_gst_prefixes})
+-endfunction()
+-
+-macro(_gst_apply_link_libraries HIDE PC_LIBRARIES PC_HINTS GST_TARGET)
+-    if (APPLE AND ${HIDE})
+-        target_link_directories(${GST_TARGET} INTERFACE
+-            ${${PC_HINTS}}
+-        )
+-    endif()
+-    foreach(LOCAL_LIB IN LISTS ${PC_LIBRARIES})
+-        if (LOCAL_LIB MATCHES "${_gst_SRT_REGEX_PATCH}")
+-            string(REGEX REPLACE "${_gst_SRT_REGEX_PATCH}" "\\1" LOCAL_LIB "${LOCAL_LIB}")
+-        endif()
+-        string(MAKE_C_IDENTIFIER "_gst_${LOCAL_LIB}" GST_LOCAL_LIB)
+-        if (NOT ${GST_LOCAL_LIB})
+-            _gst_find_library(${LOCAL_LIB} ${GST_LOCAL_LIB} ${${PC_HINTS}})
+-        endif()
+-        if ("${${GST_LOCAL_LIB}}" IN_LIST _gst_IGNORED_SYSTEM_LIBRARIES)
+-            target_link_libraries(${GST_TARGET} INTERFACE
+-                ${${GST_LOCAL_LIB}})
+-        elseif (APPLE AND ${HIDE})
+-            set(LOCAL_FILE)
+-            get_filename_component(LOCAL_FILE ${${GST_LOCAL_LIB}} NAME)
+-            target_link_libraries(${GST_TARGET} INTERFACE
+-                "-hidden-l${LOCAL_FILE}")
+-        elseif((UNIX OR ANDROID) AND ${HIDE})
+-            target_link_libraries(${GST_TARGET} INTERFACE
+-                -Wl,--exclude-libs,${${GST_LOCAL_LIB}})
+-        else()
+-            target_link_libraries(${GST_TARGET} INTERFACE
+-                ${${GST_LOCAL_LIB}})
+-        endif()
+-    endforeach()
+-endmacro()
+-
+-macro(_gst_filter_missing_directories GST_INCLUDE_DIRS)
+-    set(_gst_include_dirs)
+-    foreach(DIR IN LISTS ${GST_INCLUDE_DIRS})
+-        string(MAKE_C_IDENTIFIER "${DIR}" _gst_dir_id)
+-        if (DEFINED _gst_exists_${_gst_dir_id})
+-            if (_gst_exists_${_gst_dir_id})
+-                list(APPEND _gst_include_dirs "${DIR}")
+-            endif()
+-        elseif (EXISTS "${DIR}")
+-            list(APPEND _gst_include_dirs "${DIR}")
+-            set(_gst_exists_${_gst_dir_id} TRUE)
+-        else()
+-            message(WARNING "Skipping missing include folder ${DIR}.")
+-            set(_gst_exists_${_gst_dir_id} FALSE)
+-        endif()
+-    endforeach()
+-    set(${GST_INCLUDE_DIRS} "${_gst_include_dirs}")
+-endmacro()
+-
+-macro(_gst_apply_frameworks PC_STATIC_LDFLAGS_OTHER GST_TARGET)
+-    if (APPLE)
+-        # LDFLAGS_OTHER may include framework linkage. Because CMake
+-        # iterates over arguments separated by spaces, it doesn't realise
+-        # that those arguments must not be split.
+-        set(new_ldflags)
+-        set(assemble_framework FALSE)
+-        foreach(_arg IN LISTS ${PC_STATIC_LDFLAGS_OTHER})
+-            if (assemble_framework)
+-                set(assemble_framework FALSE)
+-                find_library(GST_${_arg}_LIB ${_arg} REQUIRED)
+-                target_link_libraries(${GST_TARGET}
+-                    INTERFACE
+-                        "${GST_${_arg}_LIB}"
+-                )
+-            elseif (_arg STREQUAL "-framework")
+-                set(assemble_framework TRUE)
+-            else()
+-                set(assemble_framework FALSE)
+-                list(APPEND new_ldflags "${_arg}")
+-            endif()
+-        endforeach()
+-        set_target_properties(${GST_TARGET} PROPERTIES
+-            INTERFACE_LINK_OPTIONS "${new_ldflags}"
+-        )
+-    else()
+-        set_target_properties(${TARGET} PROPERTIES
+-            INTERFACE_LINK_OPTIONS "${${PC_STATIC_LDFLAGS_OTHER}}"
+-        )
+-    endif()
+-endmacro()
+-
+-################################
+-#      Set up the targets      #
+-################################
+-
+-find_package(PkgConfig REQUIRED)
+-
+-# GStreamer's pkg-config modules are a MUST -- but we'll test them below
+-pkg_check_modules(PC_GStreamer gstreamer-1.0 ${GStreamer_EXTRA_DEPS})
+-# Simulate the list that'll be wholearchive'd.
+-# Unfortunately, this uses an option only available with pkgconf.
+-# set(_old_pkg_config_executable "${PKG_CONFIG_EXECUTABLE}")
+-# set(PKG_CONFIG_EXECUTABLE ${PKG_CONFIG_EXECUTABLE} --maximum-traverse-depth=1)
+-# pkg_check_modules(PC_GStreamer_NoDeps QUIET REQUIRED gstreamer-1.0 ${GStreamer_EXTRA_DEPS})
+-# set(PKG_CONFIG_EXECUTABLE "${_old_pkg_config_executable}")
+-
+-set(GStreamer_VERSION "${PC_GStreamer_VERSION}")
+-
+-# Test validity of the paths
+-# NOTE: only paths that must be considered are those provided by pkg-config
+-# NOTE 2: also exclude sysroots
+-find_path(GStreamer_INCLUDE_DIR
+-    NAMES gst/gstversion.h
+-    PATHS ${PC_GStreamer_INCLUDE_DIRS}
+-    PATH_SUFFIXES gstreamer-1.0
+-    NO_DEFAULT_PATH
+-    NO_CMAKE_FIND_ROOT_PATH
+-    REQUIRED
+-)
+-
+-find_library(GStreamer_LIBRARY
+-    NAMES gstreamer-1.0
+-    PATHS ${PC_GStreamer_LIBRARY_DIRS}
+-    NO_DEFAULT_PATH
+-    NO_CMAKE_FIND_ROOT_PATH
+-    REQUIRED
+-)
+-
+-# Android: Ignore these libraries when constructing the IMPORTED_LOCATION
+-set(_gst_IGNORED_SYSTEM_LIBRARIES c c++ unwind m dl atomic)
+-if (ANDROID)
+-    list(APPEND _gst_IGNORED_SYSTEM_LIBRARIES log GLESv2 EGL OpenSLES android vulkan)
+-elseif(APPLE)
+-    list(APPEND _gst_IGNORED_SYSTEM_LIBRARIES iconv resolv System)
+-endif()
+-
+-# Normalize library flags coming from srt/haisrt
+-# https://github.com/Haivision/srt/commit/b90b64d26f850fb0efcc4cdd8b31cbf74bd4db0c
+-set(_gst_SRT_REGEX_PATCH "^:lib(.+)\\.(a|so|lib|dylib)$")
+-
+-if(PC_GStreamer_FOUND AND (NOT TARGET GStreamer::GStreamer))
+-    # This is not UNKNOWN but INTERFACE, as we only intend to
+-    # make a target suitable for downstream consumption.
+-    # FindPkgConfig already takes care of things, however it is totally unable
+-    # to discern between shared and static libraries when populating
+-    # xxx_STATIC_LINK_LIBRARIES, so we need to populate them manually.
+-    add_library(GStreamer::GStreamer INTERFACE IMPORTED)
+-
+-    if (GStreamer_USE_STATIC_LIBS)
+-        _gst_filter_missing_directories(PC_GStreamer_STATIC_INCLUDE_DIRS)
+-        set_target_properties(GStreamer::GStreamer PROPERTIES
+-            INTERFACE_COMPILE_OPTIONS "${PC_GStreamer_STATIC_CFLAGS_OTHER}"
+-        )
+-        if (PC_GStreamer_STATIC_INCLUDE_DIRS)
+-            set_target_properties(GStreamer::GStreamer PROPERTIES
+-                INTERFACE_INCLUDE_DIRECTORIES "${PC_GStreamer_STATIC_INCLUDE_DIRS}"
+-            )
+-        endif()
+-        _gst_apply_frameworks(PC_GStreamer_STATIC_LDFLAGS_OTHER GStreamer::GStreamer)
+-    else()
+-        set_target_properties(GStreamer::GStreamer PROPERTIES
+-            INTERFACE_COMPILE_OPTIONS "${PC_GStreamer_CFLAGS_OTHER}"
+-            INTERFACE_INCLUDE_DIRECTORIES "${PC_GStreamer_INCLUDE_DIRS}"
+-            INTERFACE_LINK_OPTIONS "${PC_GStreamer_LDFLAGS_OTHER}"
+-        )
+-    endif()
+-
+-    add_library(GStreamer::deps INTERFACE IMPORTED)
+-
+-    if (NOT GStreamer_USE_STATIC_LIBS)
+-        set_target_properties(GStreamer::deps PROPERTIES
+-            INTERFACE_LINK_LIBRARIES "${PC_GStreamer_LINK_LIBRARIES}"
+-        )
+-        # We're done
+-    else()
+-        # Handle all libraries, even those specified with -l:libfoo.a (srt)
+-        # Due to the unavailability of pkgconf's `--maximum-traverse-depth`
+-        # on stock pkg-config, I attempt to simulate it through the shared
+-        # libraries listing.
+-        # If pkgconf is available, replace all PC_GStreamer_ entries with
+-        # PC_GStreamer_NoDeps and uncomment the code block above.
+-        foreach(LOCAL_LIB IN LISTS PC_GStreamer_LIBRARIES)
+-            # list(TRANSFORM REPLACE) is of no use here
+-            # https://gitlab.kitware.com/cmake/cmake/-/issues/16899
+-            if (LOCAL_LIB MATCHES "${_gst_SRT_REGEX_PATCH}")
+-                string(REGEX REPLACE "${_gst_SRT_REGEX_PATCH}" "\\1" LOCAL_LIB "${LOCAL_LIB}")
+-            endif()
+-            string(MAKE_C_IDENTIFIER "_gst_${LOCAL_LIB}" GST_LOCAL_LIB)
+-            if (NOT ${GST_LOCAL_LIB})
+-                _gst_find_library(${LOCAL_LIB} ${GST_LOCAL_LIB} ${PC_GStreamer_STATIC_LIBRARY_DIRS})
+-            endif()
+-            target_link_libraries(GStreamer::GStreamer INTERFACE
+-                "${${GST_LOCAL_LIB}}"
+-            )
+-        endforeach()
+-
+-        _gst_apply_link_libraries(ON PC_GStreamer_STATIC_LIBRARIES PC_GStreamer_STATIC_LIBRARY_DIRS GStreamer::deps)
+-    endif()
+-
+-    target_link_libraries(GStreamer::GStreamer
+-        INTERFACE
+-            GStreamer::deps
+-    )
+-endif()
+-
+-foreach(_gst_PLUGIN IN LISTS GSTREAMER_PLUGINS)
+-    # Safety valve for the custom targets above
+-    if ("${_gst_plugin}" IN_LIST _gst_CUSTOM_TARGETS)
+-        continue()
+-    endif()
+-
+-    if (TARGET GStreamer::${_gst_PLUGIN})
+-        continue()
+-    endif()
+-
+-    if (GStreamer_FIND_REQUIRED_${_gst_PLUGIN})
+-        set(_gst_PLUGIN_REQUIRED REQUIRED)
+-    else()
+-        set(_gst_PLUGIN_REQUIRED)
+-    endif()
+-
+-    pkg_check_modules(PC_GStreamer_${_gst_PLUGIN} "gst${_gst_PLUGIN}")
+-
+-    set(GStreamer_${_gst_PLUGIN}_FOUND "${PC_GStreamer_${_gst_PLUGIN}_FOUND}")
+-    if (NOT GStreamer_${_gst_PLUGIN}_FOUND)
+-        continue()
+-    endif()
+-
+-    add_library(GStreamer::${_gst_PLUGIN} INTERFACE IMPORTED)
+-    _gst_filter_missing_directories(PC_GStreamer_${_gst_PLUGIN}_INCLUDE_DIRS)
+-    set_target_properties(GStreamer::${_gst_PLUGIN} PROPERTIES
+-        INTERFACE_COMPILE_OPTIONS "${PC_GStreamer_${_gst_PLUGIN}_CFLAGS_OTHER}"
+-    )
+-    if (PC_GStreamer_${_gst_PLUGIN}_INCLUDE_DIRS)
+-        set_target_properties(GStreamer::${_gst_PLUGIN} PROPERTIES
+-            INTERFACE_INCLUDE_DIRECTORIES "${PC_GStreamer_${_gst_PLUGIN}_INCLUDE_DIRS}"
+-        )
+-    endif()
+-    if (GStreamer_USE_STATIC_LIBS)
+-        _gst_apply_frameworks(PC_GStreamer_${_gst_PLUGIN}_STATIC_LDFLAGS_OTHER GStreamer::${_gst_PLUGIN})
+-    else()
+-        set_target_properties(GStreamer::${_gst_PLUGIN} PROPERTIES
+-            INTERFACE_LINK_OPTIONS "${PC_GStreamer_${_gst_PLUGIN}_LDFLAGS_OTHER}"
+-            INTERFACE_LINK_LIBRARIES "${PC_GStreamer_${_gst_PLUGIN}_LINK_LIBRARIES}"
+-        )
+-        # We're done
+-        continue()
+-    endif()
+-
+-    # Handle all libraries, even those specified with -l:libfoo.a (srt)
+-    _gst_apply_link_libraries(OFF PC_GStreamer_${_gst_PLUGIN}_STATIC_LIBRARIES PC_GStreamer_${_gst_PLUGIN}_STATIC_LIBRARY_DIRS GStreamer::${_gst_PLUGIN})
+-endforeach()
+-
+-foreach(_gst_PLUGIN IN LISTS GSTREAMER_APIS)
+-    # Safety valve for the custom targets above
+-    if ("${_gst_plugin}" IN_LIST _gst_CUSTOM_TARGETS)
+-        continue()
+-    endif()
+-
+-    if (TARGET GStreamer::${_gst_PLUGIN})
+-        continue()
+-    endif()
+-
+-    if (GStreamer_FIND_REQUIRED_${_gst_PLUGIN})
+-        set(_gst_PLUGIN_REQUIRED REQUIRED)
+-    else()
+-        set(_gst_PLUGIN_REQUIRED)
+-    endif()
+-
+-    string(REGEX REPLACE "^api_(.+)" "\\1" _gst_PLUGIN_PC "${_gst_PLUGIN}")
+-    string(REPLACE "_" "-" _gst_PLUGIN_PC "${_gst_PLUGIN_PC}")
+-
+-    pkg_check_modules(PC_GStreamer_${_gst_PLUGIN} "gstreamer-${_gst_PLUGIN_PC}-1.0")
+-
+-    set(GStreamer_${_gst_PLUGIN}_FOUND "${PC_GStreamer_${_gst_PLUGIN}_FOUND}")
+-    if (NOT GStreamer_${_gst_PLUGIN}_FOUND)
+-        continue()
+-    endif()
+-
+-    add_library(GStreamer::${_gst_PLUGIN} INTERFACE IMPORTED)
+-    _gst_filter_missing_directories(PC_GStreamer_${_gst_PLUGIN}_INCLUDE_DIRS)
+-    set_target_properties(GStreamer::${_gst_PLUGIN} PROPERTIES
+-        INTERFACE_COMPILE_OPTIONS "${PC_GStreamer_${_gst_PLUGIN}_CFLAGS_OTHER}"
+-        INTERFACE_LINK_OPTIONS "${PC_GStreamer_${_gst_PLUGIN}_LDFLAGS_OTHER}"
+-    )
+-    if (PC_GStreamer_${_gst_PLUGIN}_INCLUDE_DIRS)
+-        set_target_properties(GStreamer::${_gst_PLUGIN} PROPERTIES
+-            INTERFACE_INCLUDE_DIRECTORIES "${PC_GStreamer_${_gst_PLUGIN}_INCLUDE_DIRS}"
+-        )
+-    endif()
+-    if (GStreamer_USE_STATIC_LIBS)
+-        _gst_apply_frameworks(PC_GStreamer_${_gst_PLUGIN}_STATIC_LDFLAGS_OTHER GStreamer::${_gst_PLUGIN})
+-    else()
+-        set_target_properties(GStreamer::${_gst_PLUGIN} PROPERTIES
+-            INTERFACE_LINK_OPTIONS "${PC_GStreamer_${_gst_PLUGIN}_LDFLAGS_OTHER}"
+-            INTERFACE_LINK_LIBRARIES "${PC_GStreamer_${_gst_PLUGIN}_LINK_LIBRARIES}"
+-        )
+-        # We're done
+-        continue()
+-    endif()
+-
+-    # Handle all libraries, even those specified with -l:libfoo.a (srt)
+-    _gst_apply_link_libraries(OFF PC_GStreamer_${_gst_PLUGIN}_STATIC_LIBRARIES PC_GStreamer_${_gst_PLUGIN}_STATIC_LIBRARY_DIRS GStreamer::${_gst_PLUGIN})
+-endforeach()
+-
+-# Perform final validation
+-include(FindPackageHandleStandardArgs)
+-set(_gst_handle_version_range)
+-if (CMAKE_VERSION VERSION_GREATER_EQUAL "3.19.0")
+-    set(_gst_handle_version_range "HANDLE_VERSION_RANGE")
+-endif()
+-find_package_handle_standard_args(GStreamer
+-    REQUIRED_VARS
+-        GStreamer_LIBRARY
+-        GStreamer_INCLUDE_DIR
+-    VERSION_VAR GStreamer_VERSION
+-    ${_gst_handle_version_range}
+-    HANDLE_COMPONENTS
+-)
+diff --git a/cmake/find-modules/_FindGStreamerMobile.cmake b/cmake/find-modules/_FindGStreamerMobile.cmake
+deleted file mode 100644
+index 80d83efdf1ac4260159006063961fa96306ce02e..0000000000000000000000000000000000000000
+--- a/cmake/find-modules/_FindGStreamerMobile.cmake
++++ /dev/null
+@@ -1,607 +0,0 @@
+-# SPDX-FileCopyrightText: 2024 L. E. Segovia <amy@centricular.com>
+-# SPDX-License-Ref: LGPL-2.1-or-later
+-
+-#[=======================================================================[.rst:
+-FindGStreamerMobile
+--------
+-
+-Creates additional mobile targets to install fonts and the CA certificate
+-bundle. Android and iOS only.
+-
+-Imported Targets
+-^^^^^^^^^^^^^^^^
+-
+-This module defines the following :prop_tgt:`INTERFACE` targets:
+-
+-``GStreamer::fonts``
+-  A target that will install GStreamer's default fonts into the app.
+-
+-``GStreamer::ca_certificates``
+-  A target that will install the NSS CA certificate bundle into the app.
+-
+-This module defines the following :prop_tgt:`SHARED` targets:
+-
+-``GStreamer::mobile``
+-  A target that will build the shared library consisting of GStreamer plus all the selected plugin components. (Android/iOS only)
+-
+-Result Variables
+-^^^^^^^^^^^^^^^^
+-
+-This will define the following variables:
+-
+-``GStreamer_Mobile_FOUND``
+-  ON if the system has the GStreamer library.
+-
+-Cache Variables
+-^^^^^^^^^^^^^^^
+-
+-The following cache variables may also be set:
+-
+-``GStreamer_CA_BUNDLE``
+-  Path to /etc/ssl/certs/ca-certificates.crt.
+-``GStreamer_UBUNTU_R_TTF``
+-  Path to the TrueType font Ubuntu R.
+-``GStreamer_FONTS_CONF``
+-  Path to /etc/fonts.conf.
+-
+-Configuration Variables
+-^^^^^^^^^^^^^^^
+-
+-Like with the main GStreamer library, setting the following variables is
+-required, depending on the operating system:
+-
+-``GStreamer_ROOT_DIR``
+-  Installation prefix of the GStreamer SDK.
+-
+-``GStreamer_JAVA_SRC_DIR``
+-  Target directory for deploying the selected plugins' Java classfiles to. (Android only)
+-
+-``GStreamer_Mobile_MODULE_NAME``
+-  Name for the GStreamer::mobile shared library. Default is ``gstreamer_android`` (Android) or ``gstreamer_mobile`` (iOS).
+-
+-``GStreamer_ASSETS_DIR``
+-  Target directory for deploying assets to.
+-
+-``G_IO_MODULES``
+-  Set this to the GIO modules you need, additional to any GStreamer plugins. (Usually set to ``gnutls`` or ``openssl``)
+-
+-``G_IO_MODULES_PATH``
+-  Path for the static GIO modules.
+-
+-#]=======================================================================]
+-
+-if (GStreamer_Mobile_FOUND)
+-    return()
+-endif()
+-
+-#####################
+-#  Setup variables  #
+-#####################
+-
+-if (NOT DEFINED GStreamer_ROOT_DIR AND DEFINED GSTREAMER_ROOT)
+-    set(GStreamer_ROOT_DIR ${GSTREAMER_ROOT})
+-endif()
+-
+-if (NOT GStreamer_ROOT_DIR)
+-    set(GStreamer_ROOT_DIR "${CMAKE_CURRENT_LIST_DIR}/../../")
+-endif()
+-
+-if (NOT EXISTS "${GStreamer_ROOT_DIR}")
+-    message(FATAL_ERROR "The directory GStreamer_ROOT_DIR=${GStreamer_ROOT_DIR} does not exist")
+-endif()
+-
+-set(_gst_required_vars)
+-
+-if (ca_certificates IN_LIST GStreamerMobile_FIND_COMPONENTS)
+-    # for setting the default GTlsDatabase
+-    list(APPEND GStreamer_EXTRA_DEPS gio-2.0)
+-endif()
+-
+-if (ANDROID)
+-    list(APPEND GStreamer_EXTRA_DEPS zlib)
+-endif()
+-
+-# Prepare Android hotfixes for x264
+-if(ANDROID_ABI MATCHES "^armeabi")
+-    set(NEEDS_NOTEXT_FIX TRUE)
+-    set(NEEDS_BSYMBOLIC_FIX TRUE)
+-elseif(ANDROID_ABI STREQUAL "x86")
+-    set(NEEDS_NOTEXT_FIX TRUE)
+-    set(NEEDS_BSYMBOLIC_FIX TRUE)
+-# arm64: https://ffmpeg.org/pipermail/ffmpeg-devel/2022-July/298734.html 
+-elseif(ANDROID_ABI STREQUAL "x86_64" OR ANDROID_ABI STREQUAL "arm64-v8a")
+-    set(NEEDS_BSYMBOLIC_FIX TRUE)
+-endif()
+-
+-# Set up output variables for Android
+-if(ANDROID)
+-    if (NOT DEFINED GStreamer_JAVA_SRC_DIR AND DEFINED GSTREAMER_JAVA_SRC_DIR)
+-        set(GStreamer_JAVA_SRC_DIR ${GSTREAMER_JAVA_SRC_DIR})
+-    elseif(NOT DEFINED GStreamer_JAVA_SRC_DIR)
+-        set(GStreamer_JAVA_SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../src/")
+-    else()
+-        # Gradle does not let us access the root of the subproject
+-        # so we implement the ndk-build assumption ourselves
+-        set(GStreamer_JAVA_SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../${GStreamer_JAVA_SRC_DIR}")
+-    endif()
+-
+-    if(NOT DEFINED GStreamer_NDK_BUILD_PATH AND DEFINED GSTREAMER_NDK_BUILD_PATH)
+-        set(GStreamer_NDK_BUILD_PATH "${GSTREAMER_NDK_BUILD_PATH}")
+-    elseif(NOT DEFINED GStreamer_NDK_BUILD_PATH)
+-        set(GStreamer_NDK_BUILD_PATH  "${GStreamer_ROOT}/share/gst-android/ndk-build/")
+-    endif()
+-endif()
+-
+-if(NOT DEFINED GStreamer_Mobile_MODULE_NAME)
+-    if (DEFINED GSTREAMER_ANDROID_MODULE_NAME)
+-        set(GStreamer_Mobile_MODULE_NAME "${GSTREAMER_ANDROID_MODULE_NAME}")
+-    elseif(ANDROID)
+-        set(GStreamer_Mobile_MODULE_NAME gstreamer_android)
+-    else()
+-        set(GStreamer_Mobile_MODULE_NAME gstreamer_mobile)
+-    endif()
+-endif()
+-
+-if(ANDROID)
+-    if(NOT DEFINED GStreamer_ASSETS_DIR AND DEFINED GSTREAMER_ASSETS_DIR)
+-        set(GStreamer_ASSETS_DIR "${GSTREAMER_ASSETS_DIR}")
+-    elseif(NOT DEFINED GStreamer_ASSETS_DIR)
+-        set(GStreamer_ASSETS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../src/assets/")
+-    else()
+-        # Same as above
+-        set(GStreamer_ASSETS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../${GStreamer_ASSETS_DIR}")
+-    endif()
+-
+-    if(NOT DEFINED GStreamer_NDK_BUILD_PATH AND DEFINED GSTREAMER_NDK_BUILD_PATH)
+-        set(GStreamer_NDK_BUILD_PATH "${GSTREAMER_NDK_BUILD_PATH}")
+-    elseif(NOT DEFINED GStreamer_NDK_BUILD_PATH)
+-        set(GStreamer_NDK_BUILD_PATH  "${GStreamer_ROOT}/share/gst-android/ndk-build/")
+-    endif()
+-elseif(IOS)
+-    if(NOT DEFINED GStreamer_ASSETS_DIR AND DEFINED GStreamer_ASSETS_DIR)
+-        set(GStreamer_ASSETS_DIR ${GStreamer_ASSETS_DIR})
+-    elseif(NOT DEFINED GStreamer_ASSETS_DIR)
+-        set(GStreamer_ASSETS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/assets")
+-    else()
+-        # Same as above
+-        set(GStreamer_ASSETS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../${GStreamer_ASSETS_DIR}")
+-    endif()
+-endif()
+-
+-if (ANDROID)
+-    file(READ "${GStreamer_NDK_BUILD_PATH}/GStreamer.java" JAVA_INPUT)
+-endif()
+-
+-if (ANDROID OR APPLE)
+-    set(GSTREAMER_IS_MOBILE ON)
+-else()
+-    set(GSTREAMER_IS_MOBILE OFF)
+-endif()
+-
+-# Block shared GStreamer on mobile
+-if (GSTREAMER_IS_MOBILE)
+-    if (NOT DEFINED GStreamer_USE_STATIC_LIBS)
+-        set(GStreamer_USE_STATIC_LIBS ON)
+-    endif()
+-    if (NOT GStreamer_USE_STATIC_LIBS)
+-        message(FATAL_ERROR "Shared library GStreamer is not supported on mobile platforms")
+-    endif()
+-endif()
+-
+-# Now, let's set up targets for each of the components supplied
+-# These are the required plugins
+-set(_gst_plugins ${GStreamerMobile_FIND_COMPONENTS})
+-# These are custom handled targets, and must be skipped from the loop
+-list(REMOVE_ITEM _gst_plugins fonts ca_certificates mobile)
+-list(REMOVE_DUPLICATES _gst_plugins)
+-
+-set(GSTREAMER_PLUGINS ${_gst_plugins})
+-# These are the API packages
+-set(GSTREAMER_APIS ${GSTREAMER_PLUGINS})
+-list(FILTER GSTREAMER_APIS INCLUDE REGEX "^api_")
+-# Filter them out, although they're handled the same
+-# they cannot be considered for the purposes of initialization
+-list(FILTER GSTREAMER_PLUGINS EXCLUDE REGEX "^api_")
+-
+-if (GSTREAMER_IS_MOBILE AND (NOT TARGET GStreamer::mobile))
+-    # Generate the plugins' declaration strings
+-    # (don't append a semicolon, CMake does it as part of the list)
+-    list(TRANSFORM GSTREAMER_PLUGINS
+-        PREPEND "\nGST_PLUGIN_STATIC_DECLARE\("
+-        OUTPUT_VARIABLE PLUGINS_DECLARATION
+-    )
+-    list(TRANSFORM PLUGINS_DECLARATION
+-        APPEND "\)"
+-        OUTPUT_VARIABLE PLUGINS_DECLARATION
+-    )
+-    if(PLUGINS_DECLARATION)
+-        set(PLUGINS_DECLARATION "${PLUGINS_DECLARATION};")
+-    endif()
+-
+-    # Generate the plugins' registration strings
+-    list(TRANSFORM GSTREAMER_PLUGINS
+-        PREPEND "\nGST_PLUGIN_STATIC_REGISTER\("
+-        OUTPUT_VARIABLE PLUGINS_REGISTRATION
+-    )
+-    list(TRANSFORM PLUGINS_REGISTRATION
+-        APPEND "\)"
+-        OUTPUT_VARIABLE PLUGINS_REGISTRATION
+-    )
+-    if(PLUGINS_REGISTRATION)
+-        set(PLUGINS_REGISTRATION "${PLUGINS_REGISTRATION};")
+-    endif()
+-
+-    # Generate list of gio modules
+-    if (NOT G_IO_MODULES)
+-        set(G_IO_MODULES)
+-    endif()
+-    list(TRANSFORM G_IO_MODULES
+-        PREPEND "gio"
+-        OUTPUT_VARIABLE G_IO_MODULES_LIBS
+-    )
+-    list(TRANSFORM G_IO_MODULES
+-        PREPEND "\nGST_G_IO_MODULE_DECLARE\("
+-        OUTPUT_VARIABLE G_IO_MODULES_DECLARE
+-    )
+-    list(TRANSFORM G_IO_MODULES_DECLARE
+-        APPEND "\);"
+-        OUTPUT_VARIABLE G_IO_MODULES_DECLARE
+-    )
+-    if(G_IO_MODULES_DECLARE)
+-        set(G_IO_MODULES_DECLARE "${G_IO_MODULES_DECLARE};")
+-    endif()
+-    list(TRANSFORM G_IO_MODULES
+-        PREPEND "\nGST_G_IO_MODULE_LOAD\("
+-        OUTPUT_VARIABLE G_IO_MODULES_LOAD
+-    )
+-    list(TRANSFORM G_IO_MODULES_LOAD
+-        APPEND "\)"
+-        OUTPUT_VARIABLE G_IO_MODULES_LOAD
+-    )
+-    if(G_IO_MODULES_LOAD)
+-        set(G_IO_MODULES_LOAD "${G_IO_MODULES_LOAD};")
+-    endif()
+-
+-    # Generates a source file that declares and registers all the required plugins
+-    if (ANDROID)
+-        configure_file(
+-            "${CMAKE_CURRENT_LIST_DIR}/GStreamer/gstreamer_android-1.0.c.in"
+-            "${GStreamer_Mobile_MODULE_NAME}.c"
+-        )
+-    else()
+-        configure_file(
+-            "${CMAKE_CURRENT_LIST_DIR}/GStreamer/gst_ios_init.m.in"
+-            "${GStreamer_Mobile_MODULE_NAME}.m"
+-        )
+-    endif()
+-
+-    # Creates a shared library including gstreamer, its plugins and all the dependencies
+-    if (ANDROID)
+-        add_library(GStreamerMobile
+-            SHARED
+-                "${GStreamer_Mobile_MODULE_NAME}.c"
+-        )
+-    else()
+-        add_library(GStreamerMobile SHARED)
+-        enable_language(OBJC OBJCXX)
+-        target_sources(GStreamerMobile
+-            PRIVATE
+-                "${GStreamer_Mobile_MODULE_NAME}.m"
+-        )
+-        set_source_files_properties("${GStreamer_Mobile_MODULE_NAME}.m"
+-            PROPERTIES
+-                LANGUAGE OBJC
+-        )
+-        find_library(Foundation_LIB Foundation REQUIRED)
+-        target_link_libraries(GStreamerMobile
+-            PRIVATE
+-                ${Foundation_LIB}
+-        )
+-    endif()
+-    add_library(GStreamer::mobile ALIAS GStreamerMobile)
+-
+-    # Assume it's C++ for the sake of gstsoundtouch
+-    set_target_properties(
+-        GStreamerMobile
+-        PROPERTIES
+-            LIBRARY_OUTPUT_NAME ${GStreamer_Mobile_MODULE_NAME}
+-    )
+-    if (APPLE)
+-        set_target_properties(
+-            GStreamerMobile
+-            PROPERTIES
+-                LINKER_LANGUAGE OBJCXX
+-                FRAMEWORK TRUE
+-                FRAMEWORK_VERSION A
+-                MACOSX_FRAMEWORK_IDENTIFIER org.gstreamer.GStreamerMobile
+-        )
+-    else()
+-        set_target_properties(
+-            GStreamerMobile
+-            PROPERTIES
+-                LINKER_LANGUAGE CXX
+-        )
+-    endif()
+-endif()
+-
+-if (GStreamerMobile_FIND_REQUIRED)
+-find_package(GStreamer COMPONENTS ${_gst_plugins} REQUIRED)
+-else()
+-find_package(GStreamer COMPONENTS ${_gst_plugins})
+-endif()
+-
+-# Path for the static GIO modules
+-pkg_get_variable(G_IO_MODULES_PATH gio-2.0 giomoduledir)
+-if (NOT G_IO_MODULES_PATH)
+-    set(G_IO_MODULES_PATH "${GStreamer_ROOT_DIR}/lib/gio/modules")
+-endif()
+-
+-if (GSTREAMER_IS_MOBILE)
+-    set_target_properties(
+-        GStreamerMobile
+-        PROPERTIES
+-            VERSION ${PC_GStreamer_VERSION}
+-            SOVERSION ${PC_GStreamer_VERSION}
+-    )
+-
+-    # Handle all libraries, even those specified with -l:libfoo.a (srt)
+-    # Due to the unavailability of pkgconf's `--maximum-traverse-depth`
+-    # on stock pkg-config, I attempt to simulate it through the shared
+-    # libraries listing.
+-    # If pkgconf is available, replace all PC_GStreamer_ entries with
+-    # PC_GStreamer_NoDeps and uncomment the code block above.
+-    foreach(LOCAL_LIB IN LISTS PC_GStreamer_LIBRARIES)
+-        # list(TRANSFORM REPLACE) is of no use here
+-        # https://gitlab.kitware.com/cmake/cmake/-/issues/16899
+-        if (LOCAL_LIB MATCHES "${_gst_SRT_REGEX_PATCH}")
+-            string(REGEX REPLACE "${_gst_SRT_REGEX_PATCH}" "\\1" LOCAL_LIB "${LOCAL_LIB}")
+-        endif()
+-        string(MAKE_C_IDENTIFIER "_gst_${LOCAL_LIB}" GST_LOCAL_LIB)
+-        # These have already been found by FindGStreamer
+-        if ("${${GST_LOCAL_LIB}}" IN_LIST _gst_IGNORED_SYSTEM_LIBRARIES)
+-            target_link_libraries(GStreamerMobile PRIVATE
+-                "${${GST_LOCAL_LIB}}"
+-            )
+-        elseif (MSVC)
+-            target_link_libraries(GStreamerMobile PRIVATE
+-                "/WHOLEARCHIVE:${${GST_LOCAL_LIB}}"
+-            )
+-        elseif(APPLE)
+-            target_link_libraries(GStreamerMobile PRIVATE
+-                "-Wl,-force_load,${${GST_LOCAL_LIB}}"
+-            )
+-        else()
+-            target_link_libraries(GStreamerMobile PRIVATE
+-                "-Wl,--whole-archive,${${GST_LOCAL_LIB}},--no-whole-archive"
+-            )
+-        endif()
+-    endforeach()
+-
+-    target_link_libraries(
+-        GStreamerMobile
+-        PRIVATE
+-            GStreamer::deps
+-    )
+-
+-    target_link_options(
+-        GStreamerMobile
+-        INTERFACE
+-            $<TARGET_PROPERTY:GStreamer::GStreamer,INTERFACE_LINK_OPTIONS>
+-    )
+-
+-    target_include_directories(
+-        GStreamerMobile
+-        INTERFACE
+-            $<TARGET_PROPERTY:GStreamer::GStreamer,INTERFACE_INCLUDE_DIRECTORIES>
+-    )
+-
+-    # Text relocations are required for all 32-bit objects. We
+-    # must disable the warning to allow linking with lld. Unlike gold, ld which
+-    # will silently allow text relocations, lld support must be explicit.
+-    #
+-    # See https://crbug.com/911658#c19 for more information. See also
+-    # https://trac.ffmpeg.org/ticket/7878
+-    if(DEFINED NEEDS_NOTEXT_FIX)
+-        target_link_options(
+-            GStreamerMobile
+-            PRIVATE
+-                "-Wl,-z,notext"
+-        )
+-    endif()
+-
+-    # resolve textrels in the x86 asm
+-    if(DEFINED NEEDS_BSYMBOLIC_FIX)
+-        target_link_options(
+-            GStreamerMobile
+-            PRIVATE
+-                "-Wl,-Bsymbolic"
+-        )
+-    endif()
+-
+-    if (ANDROID)
+-        # Collect all Java-based initializer classes
+-        set(GSTREAMER_PLUGINS_CLASSES)
+-        foreach(LOCAL_PLUGIN IN LISTS GSTREAMER_PLUGINS)
+-            file(GLOB_RECURSE
+-                LOCAL_PLUGIN_CLASS
+-                FOLLOW_SYMLINKS
+-                RELATIVE "${GStreamer_NDK_BUILD_PATH}"
+-                "${GStreamer_NDK_BUILD_PATH}/${LOCAL_PLUGIN}/*.java"
+-            )
+-            list(APPEND GSTREAMER_PLUGINS_CLASSES ${LOCAL_PLUGIN_CLASS})
+-        endforeach()
+-
+-        # Same as above, but collect the plugins themselves
+-        set(GSTREAMER_PLUGINS_WITH_CLASSES)
+-        foreach(LOCAL_PLUGIN IN LISTS GSTREAMER_PLUGINS)
+-            if(EXISTS "${GStreamer_NDK_BUILD_PATH}/${LOCAL_PLUGIN}/")
+-                list(APPEND GSTREAMER_PLUGINS_WITH_CLASSES ${LOCAL_PLUGIN})
+-            endif()
+-        endforeach()
+-
+-        add_custom_target(
+-            "copyjavasource_${ANDROID_ABI}"
+-        )
+-
+-        foreach(LOCAL_FILE IN LISTS GSTREAMER_PLUGINS_CLASSES)
+-            string(MAKE_C_IDENTIFIER "cp_${LOCAL_FILE}" COPYJAVASOURCE_TGT)
+-            add_custom_target(
+-                ${COPYJAVASOURCE_TGT}
+-                COMMAND
+-                    "${CMAKE_COMMAND}" -E make_directory
+-                    "${GStreamer_JAVA_SRC_DIR}/org/freedesktop/gstreamer/"
+-                COMMAND
+-                    "${CMAKE_COMMAND}" -E copy
+-                    "${GStreamer_NDK_BUILD_PATH}/${LOCAL_FILE}"
+-                    "${GStreamer_JAVA_SRC_DIR}/org/freedesktop/gstreamer/"
+-                BYPRODUCTS
+-                    "${GStreamer_JAVA_SRC_DIR}/org/freedesktop/gstreamer/${LOCAL_FILE}"
+-            )
+-            add_dependencies(copyjavasource_${ANDROID_ABI} ${COPYJAVASOURCE_TGT})
+-        endforeach()
+-    endif()
+-
+-    # And, finally, set the GIO modules up
+-    if (G_IO_MODULES_LIBS)
+-        add_library(GStreamer::gio_modules INTERFACE IMPORTED)
+-
+-        _gst_apply_link_libraries(OFF G_IO_MODULES_LIBS G_IO_MODULES_PATH GStreamer::gio_modules)
+-        target_link_libraries(
+-            GStreamerMobile
+-            PRIVATE
+-                GStreamer::gio_modules
+-        )
+-    endif()
+-    set(GStreamer_mobile_FOUND TRUE)
+-endif()
+-
+-if(fonts IN_LIST GStreamerMobile_FIND_COMPONENTS)
+-    set(GStreamer_UBUNTU_R_TTF "${GStreamer_NDK_BUILD_PATH}/fontconfig/fonts/Ubuntu-R.ttf"
+-        CACHE FILEPATH "Path to Ubuntu-R.ttf"
+-    )
+-    set(GStreamer_FONTS_CONF
+-        "${GStreamer_NDK_BUILD_PATH}/fontconfig/fonts.conf"
+-        CACHE FILEPATH "Path to fonts.conf"
+-    )
+-    if (EXISTS "${GStreamer_UBUNTU_R_TTF}" AND EXISTS "${GStreamer_FONTS_CONF}")
+-        set(GStreamerMobile_fonts_FOUND ON)
+-        set(_gst_required_vars "GStreamer_UBUNTU_R_TTF GStreamer_FONTS_CONF ${gst_required_vars}")
+-
+-        if (ANDROID)
+-            string(REPLACE "//copyFonts" "copyFonts" JAVA_INPUT "${JAVA_INPUT}")
+-            add_custom_target(
+-                copyfontsres_${ANDROID_ABI}
+-                COMMAND
+-                    "${CMAKE_COMMAND}" -E make_directory
+-                    "${GStreamer_ASSETS_DIR}/fontconfig/fonts/truetype/"
+-                COMMAND
+-                    "${CMAKE_COMMAND}" -E copy
+-                    "${GStreamer_UBUNTU_R_TTF}"
+-                    "${GStreamer_ASSETS_DIR}/fontconfig/fonts/truetype/"
+-                COMMAND
+-                    "${CMAKE_COMMAND}" -E copy
+-                    "${GStreamer_FONTS_CONF}"
+-                    "${GStreamer_ASSETS_DIR}/fontconfig/"
+-                BYPRODUCTS
+-                    "${GStreamer_ASSETS_DIR}/fontconfig/fonts/truetype/Ubuntu-R.ttf"
+-                    "${GStreamer_ASSETS_DIR}/fontconfig/fonts.conf"
+-            )
+-
+-            if (TARGET GStreamerMobile)
+-                add_dependencies(GStreamerMobile copyfontsres_${ANDROID_ABI})
+-            endif()
+-        elseif(APPLE)
+-            set(GStreamerMobile_fonts_FOUND ON)
+-            list(APPEND GSTREAMER_RESOURCES "${GStreamer_FONTS_CONF}" "${GStreamer_UBUNTU_R_TTF}")
+-        else()
+-            message(FATAL_ERROR "No fonts assets available for this operating system.")
+-        endif()
+-    else()
+-        set(GStreamerMobile_fonts_FOUND OFF)
+-    endif()
+-endif()
+-
+-if(ca_certificates IN_LIST GStreamerMobile_FIND_COMPONENTS)
+-    set(GStreamer_CA_BUNDLE "${GStreamer_ROOT_DIR}/etc/ssl/certs/ca-certificates.crt"
+-        CACHE FILEPATH "Path to ca-certificates bundle"
+-    )
+-    if (EXISTS "${GStreamer_CA_BUNDLE}")
+-        set(GStreamerMobile_ca_certificates_FOUND ON)
+-        string(REPLACE "//copyCaCertificates" "copyCaCertificates" JAVA_INPUT "${JAVA_INPUT}")
+-        set(_gst_required_vars "GStreamer_CA_BUNDLE ${_gst_required_vars}")
+-
+-        if (ANDROID)
+-            add_custom_target(
+-                copycacertificatesres_${ANDROID_ABI}
+-                COMMAND
+-                    "${CMAKE_COMMAND}" -E make_directory
+-                    "${GStreamer_ASSETS_DIR}/ssl/certs/"
+-                COMMAND
+-                    "${CMAKE_COMMAND}" -E copy
+-                    "${GStreamer_CA_BUNDLE}"
+-                    "${GStreamer_ASSETS_DIR}/ssl/certs/"
+-                BYPRODUCTS "${GStreamer_ASSETS_DIR}/ssl/certs/ca-certificates.crt"
+-            )
+-
+-            if (TARGET GStreamerMobile)
+-                add_dependencies(GStreamerMobile copycacertificatesres_${ANDROID_ABI})
+-                target_compile_definitions(GStreamerMobile
+-                    PRIVATE
+-                        GSTREAMER_INCLUDE_CA_CERTIFICATES
+-                )
+-            endif()
+-        elseif (APPLE)
+-            list(APPEND GSTREAMER_RESOURCES "${GStreamer_CA_BUNDLE}")
+-        else()
+-            message(FATAL_ERROR "No certificate bundle available for this operating system.")
+-        endif()
+-    else()
+-        set(GStreamerMobile_ca_certificates_FOUND OFF)
+-    endif()
+-endif()
+-
+-if (ANDROID)
+-    file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/GStreamer.java" "${JAVA_INPUT}")
+-    add_custom_target(
+-        enable_includes_in_gstreamer_java
+-        COMMAND
+-            "${CMAKE_COMMAND}" -E make_directory
+-            "${GStreamer_JAVA_SRC_DIR}/org/freedesktop/gstreamer/"
+-        COMMAND
+-            "${CMAKE_COMMAND}" -E copy
+-            "${CMAKE_CURRENT_BINARY_DIR}/GStreamer.java"
+-            "${GStreamer_JAVA_SRC_DIR}/org/freedesktop/gstreamer/GStreamer.java"
+-        BYPRODUCTS
+-            "${GStreamer_JAVA_SRC_DIR}/org/freedesktop/gstreamer/GStreamer.java"
+-    )
+-    if (TARGET GStreamerMobile)
+-        add_dependencies(copyjavasource_${ANDROID_ABI} enable_includes_in_gstreamer_java)
+-        add_dependencies(GStreamerMobile copyjavasource_${ANDROID_ABI})
+-    endif()
+-endif()
+-
+-if (TARGET GStreamerMobile AND GSTREAMER_RESOURCES)
+-    set_target_properties(
+-        GStreamerMobile
+-        PROPERTIES
+-            RESOURCE "${GSTREAMER_RESOURCES}"
+-    )
+-endif()
+-
+-# Perform final validation
+-include(FindPackageHandleStandardArgs)
+-foreach(_gst_PLUGIN IN LISTS _gst_plugins)
+-    set(GStreamerMobile_${_gst_PLUGIN}_FOUND "${GStreamer_${_gst_PLUGIN}_FOUND}")
+-
+-    if (GStreamer_${_gst_PLUGIN}_FOUND)
+-        target_link_libraries(
+-            GStreamerMobile
+-            PRIVATE
+-                GStreamer::${_gst_PLUGIN}
+-        )
+-    endif()
+-endforeach()
+-# FIXME: CMake does not tolerate interpolation of REQUIRED_VARS
+-find_package_handle_standard_args(GStreamerMobile
+-    HANDLE_COMPONENTS
+-)
+diff --git a/cmake/platform/Android.cmake b/cmake/platform/Android.cmake
+index f531d839caba26c56291a5c0664ff96f570ac920..c6bc601325877871e9485acd060182d12ad46e73 100644
+--- a/cmake/platform/Android.cmake
++++ b/cmake/platform/Android.cmake
+@@ -1,34 +1,32 @@
+ if(NOT ANDROID)
+     message(FATAL_ERROR "Invalid Platform")
+     return()
+ endif()
+ 
+-if(${Qt6_VERSION} VERSION_EQUAL 6.8.3)
+-    if(NOT ${CMAKE_ANDROID_NDK_VERSION} VERSION_EQUAL 26.1 AND NOT ${CMAKE_ANDROID_NDK_VERSION} VERSION_EQUAL 27.2)
+-        message(FATAL_ERROR "Invalid NDK Version: ${CMAKE_ANDROID_NDK_VERSION}, Use Version 26B of 27C instead.")
+-    endif()
++if(NOT ${CMAKE_ANDROID_NDK_VERSION} VERSION_EQUAL 26.1 AND NOT ${CMAKE_ANDROID_NDK_VERSION} VERSION_EQUAL 27.2)
++    message(FATAL_ERROR "Invalid NDK Version: ${CMAKE_ANDROID_NDK_VERSION}, Use Version 26B of 27C instead.")
+ endif()
+ 
+ # Generation of android version numbers must be consistent release to release such that they are always increasing
+ if(${CMAKE_PROJECT_VERSION_MAJOR} GREATER 9)
+     message(FATAL_ERROR "Major version larger than 1 digit: ${CMAKE_PROJECT_VERSION_MAJOR}")
+ endif()
+ if(${CMAKE_PROJECT_VERSION_MINOR} GREATER 9)
+     message(FATAL_ERROR "Minor version larger than 1 digit: ${CMAKE_PROJECT_VERSION_MINOR}")
+ endif()
+ if(${CMAKE_PROJECT_VERSION_PATCH} GREATER 99)
+     message(FATAL_ERROR "Patch version larger than 2 digits: ${CMAKE_PROJECT_VERSION_PATCH}")
+ endif()
+ 
+ # Bitness for android version number is 66/34 instead of 64/32 in because of a required version number bump screw-up ages ago
+ set(ANDROID_BITNESS_CODE)
+ if(${CMAKE_ANDROID_ARCH_ABI} STREQUAL "armeabi-v7a" OR ${CMAKE_ANDROID_ARCH_ABI} STREQUAL "x86")
+     set(ANDROID_BITNESS_CODE 34)
+ elseif(${CMAKE_ANDROID_ARCH_ABI} STREQUAL "arm64-v8a" OR ${CMAKE_ANDROID_ARCH_ABI} STREQUAL "x86_64")
+     set(ANDROID_BITNESS_CODE 66)
+ else()
+     message(FATAL_ERROR "Unsupported Android ABI: ${CMAKE_ANDROID_ARCH_ABI}")
+ endif()
+ 
+ set(ANDROID_PATCH_VERSION ${CMAKE_PROJECT_VERSION_PATCH})
+ if(${CMAKE_PROJECT_VERSION_PATCH} LESS 10)
+diff --git a/src/API/QGCCorePlugin.cc b/src/API/QGCCorePlugin.cc
+index 2100a746c6ea57163daf5f11318c711cb2c29c5e..ed9f365cd8b6abb83dcbd676880b6da433bd57a1 100644
+--- a/src/API/QGCCorePlugin.cc
++++ b/src/API/QGCCorePlugin.cc
+@@ -1,53 +1,47 @@
+ /****************************************************************************
+  *
+  * (c) 2009-2024 QGROUNDCONTROL PROJECT <http://www.qgroundcontrol.org>
+  *
+  * QGroundControl is licensed according to the terms in the file
+  * COPYING.md in the root of the source code directory.
+  *
+  ****************************************************************************/
+ 
+ #include "QGCCorePlugin.h"
+ #include "QGCLogging.h"
+ #include "AppSettings.h"
+ #include "MavlinkSettings.h"
+ #include "FactMetaData.h"
+-#ifdef QGC_GST_STREAMING
+-#include "GStreamer.h"
+-#endif
+ #include "HorizontalFactValueGrid.h"
+ #include "InstrumentValueData.h"
+ #include "JoystickManager.h"
+ #include "MAVLinkLib.h"
+ #include "QGCLoggingCategory.h"
+ #include "QGCOptions.h"
+ #include "QmlComponentInfo.h"
+ #include "QmlObjectListModel.h"
+-#ifdef QGC_QT_STREAMING
+-#include "QtMultimediaReceiver.h"
+-#endif
+ #include "SettingsManager.h"
+ #include "VideoReceiver.h"
+ 
+ #ifdef QGC_CUSTOM_BUILD
+ #include CUSTOMHEADER
+ #endif
+ 
+ #include <QtCore/QApplicationStatic>
+ #include <QtCore/QFile>
+ #include <QtQml/qqml.h>
+ #include <QtQml/QQmlApplicationEngine>
+ #include <QtQml/QQmlContext>
+ #include <QtQuick/QQuickItem>
+ 
+ QGC_LOGGING_CATEGORY(QGCCorePluginLog, "qgc.api.qgccoreplugin");
+ 
+ #ifndef QGC_CUSTOM_BUILD
+ Q_APPLICATION_STATIC(QGCCorePlugin, _qgcCorePluginInstance);
+ #endif
+ 
+ QGCCorePlugin::QGCCorePlugin(QObject *parent)
+     : QObject(parent)
+     , _defaultOptions(new QGCOptions(this))
+     , _emptyCustomMapItems(new QmlObjectListModel(this))
+ {
+@@ -249,79 +243,63 @@ void QGCCorePlugin::factValueGridCreateDefaultSettings(FactValueGrid* factValueG
+ 
+         value = column->value<InstrumentValueData*>(rowIndex++);
+         value->setFact(QStringLiteral("Vehicle"), QStringLiteral("FlightDistance"));
+         value->setIcon(QStringLiteral("travel-walk.svg"));
+         value->setText(value->fact()->shortDescription());
+         value->setShowUnits(true);
+     }
+ }
+ 
+ QQmlApplicationEngine *QGCCorePlugin::createQmlApplicationEngine(QObject *parent)
+ {
+     QQmlApplicationEngine *const qmlEngine = new QQmlApplicationEngine(parent);
+     qmlEngine->addImportPath(QStringLiteral("qrc:/qml"));
+     qmlEngine->rootContext()->setContextProperty(QStringLiteral("joystickManager"), JoystickManager::instance());
+     qmlEngine->rootContext()->setContextProperty(QStringLiteral("debugMessageModel"), QGCLogging::instance());
+     return qmlEngine;
+ }
+ 
+ void QGCCorePlugin::createRootWindow(QQmlApplicationEngine *qmlEngine)
+ {
+     qmlEngine->load(QUrl(QStringLiteral("qrc:/qml/QGroundControl/MainWindow.qml")));
+ }
+ 
+ VideoReceiver *QGCCorePlugin::createVideoReceiver(QObject *parent)
+ {
+-#ifdef QGC_GST_STREAMING
+-    return GStreamer::createVideoReceiver(parent);
+-#elif defined(QGC_QT_STREAMING)
+-    return QtMultimediaReceiver::createVideoReceiver(parent);
+-#else
++    Q_UNUSED(parent);
+     return nullptr;
+-#endif
+ }
+ 
+ void *QGCCorePlugin::createVideoSink(QQuickItem *widget, QObject *parent)
+ {
+-#ifdef QGC_GST_STREAMING
+-    return GStreamer::createVideoSink(widget, parent);
+-#elif defined(QGC_QT_STREAMING)
+-    return QtMultimediaReceiver::createVideoSink(widget, parent);
+-#else
+-    Q_UNUSED(widget); Q_UNUSED(parent);
++    Q_UNUSED(widget);
++    Q_UNUSED(parent);
+     return nullptr;
+-#endif
+ }
+ void QGCCorePlugin::releaseVideoSink(void *sink)
+ {
+-#ifdef QGC_GST_STREAMING
+-    GStreamer::releaseVideoSink(sink);
+-#elif defined(QGC_QT_STREAMING)
+-    QtMultimediaReceiver::releaseVideoSink(sink);
+-#else
+     Q_UNUSED(sink);
+-#endif
+ }
+ 
+ const QVariantList &QGCCorePlugin::toolBarIndicators()
+ {
+     static const QVariantList toolBarIndicatorList = QVariantList(
+         {
+             QVariant::fromValue(QUrl::fromUserInput(QStringLiteral("qrc:/qml/QGroundControl/Toolbar/RTKGPSIndicator.qml"))),
+         }
+     );
+ 
+     return toolBarIndicatorList;
+ }
+ 
+ QVariantList QGCCorePlugin::firstRunPromptsToShow()
+ {
+     QList<int> rgIdsToShow;
+ 
+     rgIdsToShow.append(firstRunPromptStdIds());
+     rgIdsToShow.append(firstRunPromptCustomIds());
+ 
+     const QList<int> rgAlreadyShownIds = AppSettings::firstRunPromptsIdsVariantToList(SettingsManager::instance()->appSettings()->firstRunPromptIdsShown()->rawValue());
+     for (int idToRemove: rgAlreadyShownIds) {
+         (void) rgIdsToShow.removeOne(idToRemove);
+     }
+ 
+diff --git a/src/Android/AndroidInit.cc b/src/Android/AndroidInit.cc
+index 18009b6c0154213a8744aa61fe06f09fbdc3f0ee..edde2dd444c83a91fbeacc6f6ebf720da885d08d 100644
+--- a/src/Android/AndroidInit.cc
++++ b/src/Android/AndroidInit.cc
+@@ -1,53 +1,41 @@
+ #include "AndroidInterface.h"
+ #ifndef QGC_NO_SERIAL_LINK
+     #include "AndroidSerial.h"
+ #endif
+ #include "JoystickAndroid.h"
+ #include "QGCLoggingCategory.h"
+ 
+ #include <QtCore/QJniEnvironment>
+ #include <QtCore/QJniObject>
+ #include <QtCore/QLoggingCategory>
+ 
+ QGC_LOGGING_CATEGORY(AndroidInitLog, "qgc.android.androidinit");
+ 
+ static jobject _context = nullptr;
+ static jobject _class_loader = nullptr;
+ 
+-#ifdef QGC_GST_STREAMING
+-extern "C"
+-{
+-    extern void gst_amc_jni_set_java_vm(JavaVM *java_vm);
+-
+-    jobject gst_android_get_application_class_loader(void)
+-    {
+-        return _class_loader;
+-    }
+-}
+-#endif
+-
+ static jboolean jniInit(JNIEnv *env, jobject context)
+ {
+     qCDebug(AndroidInitLog) << Q_FUNC_INFO;
+ 
+     const jclass context_cls = env->GetObjectClass(context);
+     if (!context_cls) {
+         return JNI_FALSE;
+     }
+ 
+     const jmethodID get_class_loader_id = env->GetMethodID(context_cls, "getClassLoader", "()Ljava/lang/ClassLoader;");
+     if (QJniEnvironment::checkAndClearExceptions(env)) {
+         return JNI_FALSE;
+     }
+ 
+     const jobject class_loader = env->CallObjectMethod(context, get_class_loader_id);
+     if (QJniEnvironment::checkAndClearExceptions(env)) {
+         return JNI_FALSE;
+     }
+ 
+     _context = env->NewGlobalRef(context);
+     _class_loader = env->NewGlobalRef(class_loader);
+ 
+     return JNI_TRUE;
+ }
+ 
+@@ -76,41 +64,37 @@ static jint jniSetNativeMethods()
+         return JNI_ERR;
+     }
+ 
+     qCDebug(AndroidInitLog) << "Main Native Functions Registered";
+ 
+     (void) jniEnv.checkAndClearExceptions();
+ 
+     return JNI_OK;
+ }
+ 
+ jint JNI_OnLoad(JavaVM *vm, void *reserved)
+ {
+     Q_UNUSED(reserved);
+ 
+     qCDebug(AndroidInitLog) << Q_FUNC_INFO;
+ 
+     JNIEnv *env;
+     if (vm->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION_1_6) != JNI_OK) {
+         return JNI_ERR;
+     }
+ 
+     if (jniSetNativeMethods() != JNI_OK) {
+         return JNI_ERR;
+     }
+ 
+-    #ifdef QGC_GST_STREAMING
+-        gst_amc_jni_set_java_vm(vm);
+-    #endif
+-
+     AndroidInterface::setNativeMethods();
+ 
+     #ifndef QGC_NO_SERIAL_LINK
+         AndroidSerial::setNativeMethods();
+     #endif
+ 
+     JoystickAndroid::setNativeMethods();
+ 
+     QNativeInterface::QAndroidApplication::hideSplashScreen(333);
+ 
+     return JNI_VERSION_1_6;
+ }
+diff --git a/src/CMakeLists.txt b/src/CMakeLists.txt
+index 3130e006b950207a732b6b5cb6790a228ec3f2d8..33ca74164a22a54bd7ff20797c1d8dde29d567cb 100644
+--- a/src/CMakeLists.txt
++++ b/src/CMakeLists.txt
+@@ -51,52 +51,50 @@ target_sources(${CMAKE_PROJECT_NAME}
+         pch.h
+         QGCApplication.cc
+         QGCApplication.h
+ )
+ 
+ if(NOT ANDROID AND NOT IOS)
+     target_sources(${CMAKE_PROJECT_NAME}
+         PRIVATE
+             RunGuard.cc
+             RunGuard.h
+     )
+ endif()
+ 
+ target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+ 
+ target_link_libraries(${CMAKE_PROJECT_NAME}
+     PRIVATE
+         Qt6::Charts
+         Qt6::Concurrent
+         Qt6::Core
+         Qt6::Core5Compat
+         Qt6::CorePrivate
+         Qt6::Gui
+         Qt6::Location
+         Qt6::LocationPrivate
+-        Qt6::Multimedia
+-        Qt6::MultimediaQuickPrivate
+         Qt6::Network
+         Qt6::Positioning
+         Qt6::PositioningPrivate
+         Qt6::Qml
+         Qt6::QmlIntegration
+         Qt6::Quick
+         Qt6::QuickControls2
+         Qt6::Sensors
+         Qt6::Svg
+         Qt6::TextToSpeech
+         Qt6::Widgets
+         Qt6::Xml
+         AnalyzeViewModule
+         AppSettingsModule
+         AutoPilotPluginsCommonModule
+         FactControlsModule
+         FirstRunPromptDialogsModule
+         FlightDisplayModule
+         FlightMapModule
+         QGroundControlControlsModule
+         QGroundControlModule
+         ToolbarModule
+         UTMSPModule
+         VehicleSetupModule
+ )
+diff --git a/src/FlightDisplay/CMakeLists.txt b/src/FlightDisplay/CMakeLists.txt
+index e273aac9369c61e9fc2a38c91e65edaed57d0e3d..595c8d93456a520c5c3f5f467b04c2412212689b 100644
+--- a/src/FlightDisplay/CMakeLists.txt
++++ b/src/FlightDisplay/CMakeLists.txt
+@@ -1,39 +1,36 @@
+ qt_add_library(FlightDisplayModule STATIC)
+ 
+ qt_add_qml_module(FlightDisplayModule
+     URI QGroundControl.FlightDisplay
+     VERSION 1.0
+     RESOURCE_PREFIX /qml
+     QML_FILES
+         CustomGuidedActionsController.qml
+         DefaultChecklist.qml
+         FixedWingChecklist.qml
+         FlightDisplayViewDummy.qml
+-        FlightDisplayViewGStreamer.qml
+-        FlightDisplayViewQtMultimedia.qml
+-        FlightDisplayViewUVC.qml
+         FlightDisplayViewVideo.qml
+         FlyView.qml
+         FlyViewAdditionalActionsButton.qml
+         FlyViewAdditionalActionsList.qml
+         FlyViewAdditionalActionsPanel.qml
+         FlyViewAdditionalCustomActionsList.qml
+         FlyViewBottomRightRowLayout.qml
+         FlyViewCustomLayer.qml
+         FlyViewInsetViewer.qml
+         FlyViewInstrumentPanel.qml
+         FlyViewMap.qml
+         FlyViewMissionCompleteDialog.qml
+         FlyViewPreFlightChecklistPopup.qml
+         FlyViewToolStrip.qml
+         FlyViewToolStripActionList.qml
+         FlyViewTopRightColumnLayout.qml
+         FlyViewTopRightPanel.qml
+         FlyViewVideo.qml
+         FlyViewWidgetLayer.qml
+         GripperMenu.qml
+         GuidedActionConfirm.qml
+         GuidedActionGripper.qml
+         GuidedActionLand.qml
+         GuidedActionPause.qml
+         GuidedActionRTL.qml
+diff --git a/src/FlightDisplay/FlightDisplayViewGStreamer.qml b/src/FlightDisplay/FlightDisplayViewGStreamer.qml
+deleted file mode 100644
+index 1217ab7bc1eda97b93660baf539f22c2b5070aab..0000000000000000000000000000000000000000
+--- a/src/FlightDisplay/FlightDisplayViewGStreamer.qml
++++ /dev/null
+@@ -1,23 +0,0 @@
+-/****************************************************************************
+- *
+- * (c) 2009-2020 QGROUNDCONTROL PROJECT <http://www.qgroundcontrol.org>
+- *
+- * QGroundControl is licensed according to the terms in the file
+- * COPYING.md in the root of the source code directory.
+- *
+- ****************************************************************************/
+-
+-
+-/**
+- * @file
+- *   @brief QGC Video Background
+- *   @author Gus Grubba <gus@auterion.com>
+- */
+-
+-import QtQuick
+-import QtQuick.Controls
+-import org.freedesktop.gstreamer.Qt6GLVideoItem
+-
+-GstGLQt6VideoItem {
+-    id: videoBackground
+-}
+diff --git a/src/FlightDisplay/FlightDisplayViewQtMultimedia.qml b/src/FlightDisplay/FlightDisplayViewQtMultimedia.qml
+deleted file mode 100644
+index d7262d82898913b7d2cde4f1e3cab8fa61b017d5..0000000000000000000000000000000000000000
+--- a/src/FlightDisplay/FlightDisplayViewQtMultimedia.qml
++++ /dev/null
+@@ -1,17 +0,0 @@
+-/****************************************************************************
+- *
+- * (c) 2009-2020 QGROUNDCONTROL PROJECT <http://www.qgroundcontrol.org>
+- *
+- * QGroundControl is licensed according to the terms in the file
+- * COPYING.md in the root of the source code directory.
+- *
+- ****************************************************************************/
+-
+-import QtQuick
+-import QtMultimedia
+-
+-VideoOutput {
+-    id:             videoOutput
+-    anchors.fill:   parent
+-    fillMode:       VideoOutput.PreserveAspectCrop
+-}
+diff --git a/src/FlightDisplay/FlightDisplayViewUVC.qml b/src/FlightDisplay/FlightDisplayViewUVC.qml
+deleted file mode 100644
+index 81672ea746e4289925d4c6ff2ab9bc57ed2444f8..0000000000000000000000000000000000000000
+--- a/src/FlightDisplay/FlightDisplayViewUVC.qml
++++ /dev/null
+@@ -1,75 +0,0 @@
+-/****************************************************************************
+- *
+- * (c) 2009-2020 QGROUNDCONTROL PROJECT <http://www.qgroundcontrol.org>
+- *
+- * QGroundControl is licensed according to the terms in the file
+- * COPYING.md in the root of the source code directory.
+- *
+- ****************************************************************************/
+-
+-import QtQuick
+-import QtMultimedia
+-
+-import QGroundControl
+-
+-Rectangle {
+-    id:                 _root
+-    width:              parent.width
+-    height:             parent.height
+-    color:              Qt.rgba(0,0,0,0.75)
+-    clip:               true
+-    anchors.centerIn:   parent
+-    visible:            _videoManager.isUvc
+-
+-    property var _videoManager: QGroundControl.videoManager
+-
+-    function adjustAspectRatio() {
+-        //-- Set aspect ratio
+-        var resolution = camera.cameraFormat.resolution
+-        if (resolution.height > 0 && resolution.width > 0) {
+-            var aspectRatio = resolution.width / resolution.height
+-            _root.height = parent.height * aspectRatio
+-        }
+-    }
+-
+-    MediaDevices {
+-        id: mediaDevices
+-
+-        function findCameraDevice(cameraId) {
+-            var videoInputs = mediaDevices.videoInputs
+-            for (var i = 0; i < videoInputs.length; i++) {
+-                if (videoInputs[i].description === cameraId) {
+-                    return videoInputs[i]
+-                }
+-            }
+-            return mediaDevices.defaultVideoInput
+-        }
+-    }
+-
+-    CaptureSession {
+-        camera: Camera {
+-            id:             camera
+-            cameraDevice:   mediaDevices.findCameraDevice(_videoManager.uvcVideoSourceID)
+-            active:         _videoManager.isUvc
+-
+-            onCameraDeviceChanged: {
+-                if (active) {
+-                    adjustAspectRatio()
+-                }
+-            }
+-
+-            onActiveChanged: {
+-                if (active) {
+-                    adjustAspectRatio()
+-                }
+-            }
+-        }
+-        videoOutput: videoOutput
+-    }
+-
+-    VideoOutput {
+-        id:             videoOutput
+-        anchors.fill:   parent
+-        fillMode:       VideoOutput.PreserveAspectCrop
+-    }
+-}
+diff --git a/src/FlightDisplay/FlightDisplayViewVideo.qml b/src/FlightDisplay/FlightDisplayViewVideo.qml
+index 3afe8f0ff9c3f2133a407a6168bd0793a10c2a36..8535483b5538423660e108538fa6b706571fa962 100644
+--- a/src/FlightDisplay/FlightDisplayViewVideo.qml
++++ b/src/FlightDisplay/FlightDisplayViewVideo.qml
+@@ -4,51 +4,51 @@
+  *
+  * QGroundControl is licensed according to the terms in the file
+  * COPYING.md in the root of the source code directory.
+  *
+  ****************************************************************************/
+ 
+ 
+ import QtQuick
+ import QtQuick.Controls
+ 
+ import QGroundControl
+ import QGroundControl.FlightDisplay
+ import QGroundControl.FlightMap
+ 
+ import QGroundControl.Controls
+ 
+ 
+ 
+ 
+ Item {
+     id:     root
+     clip:   true
+ 
+     property bool useSmallFont: true
+ 
+-    property double _ar:                QGroundControl.videoManager.gstreamerEnabled
++    property double _ar:                QGroundControl.videoManager.videoSize.height > 0
+                                             ? QGroundControl.videoManager.videoSize.width / QGroundControl.videoManager.videoSize.height
+                                             : QGroundControl.videoManager.aspectRatio
+     property bool   _showGrid:          QGroundControl.settingsManager.videoSettings.gridLines.rawValue
+     property var    _dynamicCameras:    globals.activeVehicle ? globals.activeVehicle.cameraManager : null
+     property bool   _connected:         globals.activeVehicle ? !globals.activeVehicle.communicationLost : false
+     property int    _curCameraIndex:    _dynamicCameras ? _dynamicCameras.currentCamera : 0
+     property bool   _isCamera:          _dynamicCameras ? _dynamicCameras.cameras.count > 0 : false
+     property var    _camera:            _isCamera ? _dynamicCameras.cameras.get(_curCameraIndex) : null
+     property bool   _hasZoom:           _camera && _camera.hasZoom
+     property int    _fitMode:           QGroundControl.settingsManager.videoSettings.videoFit.rawValue
+ 
+     property bool   _isMode_FIT_WIDTH:  _fitMode === 0
+     property bool   _isMode_FIT_HEIGHT: _fitMode === 1
+     property bool   _isMode_FILL:       _fitMode === 2
+     property bool   _isMode_NO_CROP:    _fitMode === 3
+ 
+     function getWidth() {
+         return videoBackground.getWidth()
+     }
+     function getHeight() {
+         return videoBackground.getHeight()
+     }
+ 
+     property double _thermalHeightFactor: 0.85 //-- TODO
+ 
+diff --git a/src/FlightDisplay/FlyViewVideo.qml b/src/FlightDisplay/FlyViewVideo.qml
+index 0dc656622e5a9ae316b27f38d475a2b1a22a8d6e..d7c50279a03ad58d201c7ba3e991811a7c8f13f3 100644
+--- a/src/FlightDisplay/FlyViewVideo.qml
++++ b/src/FlightDisplay/FlyViewVideo.qml
+@@ -31,63 +31,56 @@ Item {
+         onWindowAboutToOpen: {
+             QGroundControl.videoManager.stopVideo()
+             videoStartDelay.start()
+         }
+ 
+         onWindowAboutToClose: {
+             QGroundControl.videoManager.stopVideo()
+             videoStartDelay.start()
+         }
+ 
+         onStateChanged: {
+             if (pipState.state !== pipState.fullState) {
+                 QGroundControl.videoManager.fullScreen = false
+             }
+         }
+     }
+ 
+     Timer {
+         id:           videoStartDelay
+         interval:     2000;
+         running:      false
+         repeat:       false
+         onTriggered:  QGroundControl.videoManager.startVideo()
+     }
+ 
+-    //-- Video Streaming
++    //-- Video View (video disabled)
+     FlightDisplayViewVideo {
+         id:             videoStreaming
+         anchors.fill:   parent
+         useSmallFont:   _root.pipState.state !== _root.pipState.fullState
+-        visible:        QGroundControl.videoManager.isStreamSource
+-    }
+-    //-- UVC Video (USB Camera or Video Device)
+-    Loader {
+-        id:             cameraLoader
+-        anchors.fill:   parent
+-        visible:        QGroundControl.videoManager.isUvc
+-        source:         QGroundControl.videoManager.uvcEnabled ? "qrc:/qml/QGroundControl/FlightDisplay/FlightDisplayViewUVC.qml" : "qrc:/qml/QGroundControl/FlightDisplay//FlightDisplayViewDummy.qml"
++        visible:        true
+     }
+ 
+     QGCLabel {
+         text: qsTr("Double-click to exit full screen")
+         font.pointSize: ScreenTools.largeFontPointSize
+         visible: QGroundControl.videoManager.fullScreen && flyViewVideoMouseArea.containsMouse
+         anchors.centerIn: parent
+ 
+         onVisibleChanged: {
+             if (visible) {
+                 labelAnimation.start()
+             }
+         }
+ 
+         PropertyAnimation on opacity {
+             id: labelAnimation
+             duration: 10000
+             from: 1.0
+             to: 0.0
+             easing.type: Easing.InExpo
+         }
+     }
+ 
+     OnScreenGimbalController {
+         id:                      onScreenGimbalController
+diff --git a/src/FlightDisplay/QGCVideoBackground.qml b/src/FlightDisplay/QGCVideoBackground.qml
+index a4a1abad0ee9a44ab34fdc7da6c016826beb09a4..8774bbd4c94341e030dd5b22b1e69c35d533906c 100644
+--- a/src/FlightDisplay/QGCVideoBackground.qml
++++ b/src/FlightDisplay/QGCVideoBackground.qml
+@@ -1,15 +1,15 @@
+ /****************************************************************************
+  *
+  * (c) 2009-2020 QGROUNDCONTROL PROJECT <http://www.qgroundcontrol.org>
+  *
+  * QGroundControl is licensed according to the terms in the file
+  * COPYING.md in the root of the source code directory.
+  *
+  ****************************************************************************/
+ 
+ import QtQuick
+ import QtQuick.Controls
+ 
+-FlightDisplayViewGStreamer {
++FlightDisplayViewDummy {
+     id: videoBackground
+ }
+diff --git a/src/QGCApplication.cc b/src/QGCApplication.cc
+index 1cdb22f755905d13ad07d704293f7c5c6dae67ca..1490c475a5dd7c66d9e036d5cf36334d764f1408 100644
+--- a/src/QGCApplication.cc
++++ b/src/QGCApplication.cc
+@@ -208,74 +208,68 @@ void QGCApplication::setLanguage()
+         _qmlAppEngine->retranslate();
+     }
+ 
+     emit languageChanged(_locale);
+ }
+ 
+ QGCApplication::~QGCApplication()
+ {
+ 
+ }
+ 
+ void QGCApplication::init()
+ {
+     SettingsManager::instance()->init();
+ 
+     // Although this should really be in _initForNormalAppBoot putting it here allowws us to create unit tests which pop up more easily
+     if(QFontDatabase::addApplicationFont(":/fonts/opensans") < 0) {
+         qCWarning(QGCApplicationLog) << "Could not load /fonts/opensans font";
+     }
+ 
+     if(QFontDatabase::addApplicationFont(":/fonts/opensans-demibold") < 0) {
+         qCWarning(QGCApplicationLog) << "Could not load /fonts/opensans-demibold font";
+     }
+ 
+     if (_simpleBootTest) {
+-        // Since GStream builds are so problematic we initialize video during the simple boot test
+-        // to make sure it works and verfies plugin availability.
++        // Initialize video during the simple boot test to make sure it works and verifies plugin availability.
+         _initVideo();
+     } else if (!_runningUnitTests) {
+         _initForNormalAppBoot();
+     }
+ }
+ 
+ void QGCApplication::_initVideo()
+ {
+-#ifdef QGC_GST_STREAMING
+-    // Gstreamer video playback requires OpenGL
+-    QQuickWindow::setGraphicsApi(QSGRendererInterface::OpenGL);
+-#endif
+-
+     QGCCorePlugin::instance();  // CorePlugin must be initialized before VideoManager for Video Cleanup
+     VideoManager::instance();
+     _videoManagerInitialized = true;
+ }
+ 
+ void QGCApplication::_initForNormalAppBoot()
+ {
+ 
+-    _initVideo(); // GStreamer must be initialized before QmlEngine
++    _initVideo();
+ 
+     QQuickStyle::setStyle("Basic");
+     QGCCorePlugin::instance()->init();
+     MAVLinkProtocol::instance()->init();
+     MultiVehicleManager::instance()->init();
+     _qmlAppEngine = QGCCorePlugin::instance()->createQmlApplicationEngine(this);
+     QObject::connect(_qmlAppEngine, &QQmlApplicationEngine::objectCreationFailed, this, QCoreApplication::quit, Qt::QueuedConnection);
+     QGCCorePlugin::instance()->createRootWindow(_qmlAppEngine);
+ 
+     AudioOutput::instance()->init(SettingsManager::instance()->appSettings()->audioMuted());
+     FollowMe::instance()->init();
+     QGCPositionManager::instance()->init();
+     LinkManager::instance()->init();
+     VideoManager::instance()->init(mainRootWindow());
+ 
+     // Image provider for Optical Flow
+     _qmlAppEngine->addImageProvider(_qgcImageProviderId, new QGCImageProvider());
+ 
+     // Set the window icon now that custom plugin has a chance to override it
+ #ifdef Q_OS_LINUX
+     QUrl windowIcon = QUrl("qrc:/res/qgroundcontrol.ico");
+     windowIcon = _qmlAppEngine->interceptUrl(windowIcon, QQmlAbstractUrlInterceptor::UrlString);
+     // The interceptor needs "qrc:/path" but QIcon expects ":/path"
+     setWindowIcon(QIcon(":" + windowIcon.path()));
+ #endif
+diff --git a/src/QmlControls/MAVLinkChart.qml b/src/QmlControls/MAVLinkChart.qml
+index 2fd29b63722a6cb7f7d05c99f9c7efb464e208be..1b56107ed1dd459bb6fc00dd960bb213a9259268 100644
+--- a/src/QmlControls/MAVLinkChart.qml
++++ b/src/QmlControls/MAVLinkChart.qml
+@@ -9,51 +9,51 @@ import QGroundControl.Controls
+ 
+ 
+ 
+ ChartView {
+     id:                 chartView
+     theme:              ChartView.ChartThemeDark
+     antialiasing:       true
+     animationOptions:   ChartView.NoAnimation
+     legend.visible:     false
+     backgroundColor:    qgcPal.window
+     backgroundRoundness: 0
+     margins.bottom:     ScreenTools.defaultFontPixelHeight * 1.5
+     margins.top:        chartHeader.height + (ScreenTools.defaultFontPixelHeight * 2)
+ 
+     property var chartController:   null
+     property var seriesColors:      ["#00E04B","#DE8500","#F32836","#BFBFBF","#536DFF","#EECC44"]
+ 
+     function addDimension(field) {
+         if(!chartController) {
+             chartController = controller.createChart()
+         }
+         var color   = chartView.seriesColors[chartView.count]
+         var serie   = createSeries(ChartView.SeriesTypeLine, field.label)
+         serie.axisX = axisX
+         serie.axisY = axisY
+-        serie.useOpenGL = QGroundControl.videoManager.gstreamerEnabled // Details on why here: https://github.com/mavlink/qgroundcontrol/issues/13068
++        serie.useOpenGL = false
+         serie.color = color
+         serie.width = 1
+         chartController.addSeries(field, serie)
+     }
+ 
+     function delDimension(field) {
+         if(chartController) {
+             chartView.removeSeries(field.series)
+             chartController.delSeries(field)
+             if(chartView.count === 0) {
+                 controller.deleteChart(chartController)
+                 chartController = null
+             }
+         }
+     }
+ 
+     Connections {
+         target: QGroundControl.multiVehicleManager
+ 
+         function onVehicleRemoved(vehicle) {
+             // Hack to prevent references to deleted QGCMavlinkSystem fields. https://github.com/mavlink/qgroundcontrol/issues/13077
+             controller.deleteChart(chartController);
+             chartController = null;
+         }
+     }
+diff --git a/src/Settings/VideoSettings.cc b/src/Settings/VideoSettings.cc
+index 44baa01f29f3f5944e4a81a5f579c267ad5ab377..b2d40bcea2207e4662bb56994fb3979dfef72dec 100644
+--- a/src/Settings/VideoSettings.cc
++++ b/src/Settings/VideoSettings.cc
+@@ -1,76 +1,47 @@
+ /****************************************************************************
+  *
+  * (c) 2009-2024 QGROUNDCONTROL PROJECT <http://www.qgroundcontrol.org>
+  *
+  * QGroundControl is licensed according to the terms in the file
+  * COPYING.md in the root of the source code directory.
+  *
+  ****************************************************************************/
+ 
+ #include "VideoSettings.h"
+ #include "VideoManager.h"
+ 
+ #include <QtCore/QVariantList>
+ 
+-#ifdef QGC_GST_STREAMING
+-#include "GStreamer.h"
+-#endif
+-#ifndef QGC_DISABLE_UVC
+-#include "UVCReceiver.h"
+-#endif
+ 
+ DECLARE_SETTINGGROUP(Video, "Video")
+ {
+     // Setup enum values for videoSource settings into meta data
+     QVariantList videoSourceList;
+-#if defined(QGC_GST_STREAMING) || defined(QGC_QT_STREAMING)
+-    videoSourceList.append(videoSourceRTSP);
+-    videoSourceList.append(videoSourceUDPH264);
+-    videoSourceList.append(videoSourceUDPH265);
+-    videoSourceList.append(videoSourceTCP);
+-    videoSourceList.append(videoSourceMPEGTS);
+-    videoSourceList.append(videoSource3DRSolo);
+-    videoSourceList.append(videoSourceParrotDiscovery);
+-    videoSourceList.append(videoSourceYuneecMantisG);
+-
+-    #ifdef QGC_HERELINK_AIRUNIT_VIDEO
+-        videoSourceList.append(videoSourceHerelinkAirUnit);
+-    #else
+-        videoSourceList.append(videoSourceHerelinkHotspot);
+-    #endif
+-#endif
+-#ifndef QGC_DISABLE_UVC
+-    videoSourceList.append(UVCReceiver::getDeviceNameList());
+-#endif
+-    if (videoSourceList.count() == 0) {
+-        _noVideo = true;
+-        videoSourceList.append(videoSourceNoVideo);
+-        setVisible(false);
+-    } else {
+-        videoSourceList.insert(0, videoDisabled);
+-    }
++    _noVideo = true;
++    videoSourceList.append(videoSourceNoVideo);
++    setVisible(false);
+ 
+     // make translated strings
+     QStringList videoSourceCookedList;
+     for (const QVariant& videoSource: videoSourceList) {
+         videoSourceCookedList.append( VideoSettings::tr(videoSource.toString().toStdString().c_str()) );
+     }
+ 
+     _nameToMetaDataMap[videoSourceName]->setEnumInfo(videoSourceCookedList, videoSourceList);
+ 
+     _setForceVideoDecodeList();
+ 
+     // Set default value for videoSource
+     _setDefaults();
+ }
+ 
+ void VideoSettings::_setDefaults()
+ {
+     if (_noVideo) {
+         _nameToMetaDataMap[videoSourceName]->setRawDefaultValue(videoSourceNoVideo);
+     } else {
+         _nameToMetaDataMap[videoSourceName]->setRawDefaultValue(videoDisabled);
+     }
+ }
+ 
+ DECLARE_SETTINGSFACT(VideoSettings, aspectRatio)
+@@ -83,93 +54,75 @@ DECLARE_SETTINGSFACT(VideoSettings, enableStorageLimit)
+ DECLARE_SETTINGSFACT(VideoSettings, streamEnabled)
+ DECLARE_SETTINGSFACT(VideoSettings, disableWhenDisarmed)
+ 
+ DECLARE_SETTINGSFACT_NO_FUNC(VideoSettings, videoSource)
+ {
+     if (!_videoSourceFact) {
+         _videoSourceFact = _createSettingsFact(videoSourceName);
+         //-- Check for sources no longer available
+         if(!_videoSourceFact->enumValues().contains(_videoSourceFact->rawValue().toString())) {
+             if (_noVideo) {
+                 _videoSourceFact->setRawValue(videoSourceNoVideo);
+             } else {
+                 _videoSourceFact->setRawValue(videoDisabled);
+             }
+         }
+         connect(_videoSourceFact, &Fact::valueChanged, this, &VideoSettings::_configChanged);
+     }
+     return _videoSourceFact;
+ }
+ 
+ DECLARE_SETTINGSFACT_NO_FUNC(VideoSettings, forceVideoDecoder)
+ {
+     if (!_forceVideoDecoderFact) {
+         _forceVideoDecoderFact = _createSettingsFact(forceVideoDecoderName);
+ 
+-        _forceVideoDecoderFact->setVisible(
+-#ifdef QGC_GST_STREAMING
+-            true
+-#else
+-            false
+-#endif
+-        );
++        _forceVideoDecoderFact->setVisible(false);
+ 
+         connect(_forceVideoDecoderFact, &Fact::valueChanged, this, &VideoSettings::_configChanged);
+     }
+     return _forceVideoDecoderFact;
+ }
+ 
+ DECLARE_SETTINGSFACT_NO_FUNC(VideoSettings, lowLatencyMode)
+ {
+     if (!_lowLatencyModeFact) {
+         _lowLatencyModeFact = _createSettingsFact(lowLatencyModeName);
+ 
+-        _lowLatencyModeFact->setVisible(
+-#ifdef QGC_GST_STREAMING
+-            true
+-#else
+-            false
+-#endif
+-        );
++        _lowLatencyModeFact->setVisible(false);
+ 
+         connect(_lowLatencyModeFact, &Fact::valueChanged, this, &VideoSettings::_configChanged);
+     }
+     return _lowLatencyModeFact;
+ }
+ 
+ DECLARE_SETTINGSFACT_NO_FUNC(VideoSettings, rtspTimeout)
+ {
+     if (!_rtspTimeoutFact) {
+         _rtspTimeoutFact = _createSettingsFact(rtspTimeoutName);
+ 
+-        _rtspTimeoutFact->setVisible(
+-#ifdef QGC_GST_STREAMING
+-            true
+-#else
+-            false
+-#endif
+-        );
++        _rtspTimeoutFact->setVisible(false);
+ 
+         connect(_rtspTimeoutFact, &Fact::valueChanged, this, &VideoSettings::_configChanged);
+     }
+     return _rtspTimeoutFact;
+ }
+ 
+ DECLARE_SETTINGSFACT_NO_FUNC(VideoSettings, udpUrl)
+ {
+     if (!_udpUrlFact) {
+         _udpUrlFact = _createSettingsFact(udpUrlName);
+         connect(_udpUrlFact, &Fact::valueChanged, this, &VideoSettings::_configChanged);
+     }
+     return _udpUrlFact;
+ }
+ 
+ DECLARE_SETTINGSFACT_NO_FUNC(VideoSettings, rtspUrl)
+ {
+     if (!_rtspUrlFact) {
+         _rtspUrlFact = _createSettingsFact(rtspUrlName);
+         connect(_rtspUrlFact, &Fact::valueChanged, this, &VideoSettings::_configChanged);
+     }
+     return _rtspUrlFact;
+ }
+ 
+ DECLARE_SETTINGSFACT_NO_FUNC(VideoSettings, tcpUrl)
+@@ -201,71 +154,36 @@ bool VideoSettings::streamConfigured(void)
+     //-- If RTSP, check for URL
+     if(vSource == videoSourceRTSP) {
+         qCDebug(VideoManagerLog) << "Testing configuration for RTSP Stream:" << rtspUrl()->rawValue().toString();
+         return !rtspUrl()->rawValue().toString().isEmpty();
+     }
+     //-- If TCP, check for URL
+     if(vSource == videoSourceTCP) {
+         qCDebug(VideoManagerLog) << "Testing configuration for TCP Stream:" << tcpUrl()->rawValue().toString();
+         return !tcpUrl()->rawValue().toString().isEmpty();
+     }
+     //-- If MPEG-TS, check for URL
+     if(vSource == videoSourceMPEGTS) {
+         qCDebug(VideoManagerLog) << "Testing configuration for MPEG-TS Stream:" << udpUrl()->rawValue().toString();
+         return !udpUrl()->rawValue().toString().isEmpty();
+     }
+     //-- If Herelink Air unit, good to go
+     if(vSource == videoSourceHerelinkAirUnit) {
+         qCDebug(VideoManagerLog) << "Stream configured for Herelink Air Unit";
+         return true;
+     }
+     //-- If Herelink Hotspot, good to go
+     if(vSource == videoSourceHerelinkHotspot) {
+         qCDebug(VideoManagerLog) << "Stream configured for Herelink Hotspot";
+         return true;
+     }
+-#ifndef QGC_DISABLE_UVC
+-    if (UVCReceiver::enabled() && UVCReceiver::deviceExists(vSource)) {
+-        qCDebug(VideoManagerLog) << "Stream configured for UVC";
+-        return true;
+-    }
+-#endif
+     return false;
+ }
+ 
+ void VideoSettings::_configChanged(QVariant)
+ {
+     emit streamConfiguredChanged(streamConfigured());
+ }
+ 
+ void VideoSettings::_setForceVideoDecodeList()
+ {
+-#ifdef QGC_GST_STREAMING
+-    static const QList<GStreamer::VideoDecoderOptions> removeForceVideoDecodeList{
+-#if defined(Q_OS_ANDROID)
+-    GStreamer::VideoDecoderOptions::ForceVideoDecoderDirectX3D,
+-    GStreamer::VideoDecoderOptions::ForceVideoDecoderVideoToolbox,
+-    GStreamer::VideoDecoderOptions::ForceVideoDecoderVAAPI,
+-    GStreamer::VideoDecoderOptions::ForceVideoDecoderNVIDIA,
+-    GStreamer::VideoDecoderOptions::ForceVideoDecoderIntel,
+-#elif defined(Q_OS_LINUX)
+-    GStreamer::VideoDecoderOptions::ForceVideoDecoderDirectX3D,
+-    GStreamer::VideoDecoderOptions::ForceVideoDecoderVideoToolbox,
+-#elif defined(Q_OS_WIN)
+-    GStreamer::VideoDecoderOptions::ForceVideoDecoderVideoToolbox,
+-    GStreamer::VideoDecoderOptions::ForceVideoDecoderVulkan,
+-#elif defined(Q_OS_MACOS)
+-    GStreamer::VideoDecoderOptions::ForceVideoDecoderDirectX3D,
+-    GStreamer::VideoDecoderOptions::ForceVideoDecoderVAAPI,
+-#elif defined(Q_OS_IOS)
+-    GStreamer::VideoDecoderOptions::ForceVideoDecoderDirectX3D,
+-    GStreamer::VideoDecoderOptions::ForceVideoDecoderVAAPI,
+-    GStreamer::VideoDecoderOptions::ForceVideoDecoderNVIDIA,
+-    GStreamer::VideoDecoderOptions::ForceVideoDecoderIntel,
+-#endif
+-    };
+-
+-    for (const auto &value : removeForceVideoDecodeList) {
+-        _nameToMetaDataMap[forceVideoDecoderName]->removeEnumInfo(value);
+-    }
+-#endif
+ }
+diff --git a/src/UI/AppSettings/VideoSettings.qml b/src/UI/AppSettings/VideoSettings.qml
+index b9f548f374509236eb36c7876cabd9fb0a8113f2..1bdcd6cc8b199f38992e4ff2ea20156e788aee0d 100644
+--- a/src/UI/AppSettings/VideoSettings.qml
++++ b/src/UI/AppSettings/VideoSettings.qml
+@@ -1,51 +1,50 @@
+ /****************************************************************************
+  *
+  * (c) 2009-2020 QGROUNDCONTROL PROJECT <http://www.qgroundcontrol.org>
+  *
+  * QGroundControl is licensed according to the terms in the file
+  * COPYING.md in the root of the source code directory.
+  *
+  ****************************************************************************/
+ 
+ 
+ import QtQuick
+ import QtQuick.Controls
+ import QtQuick.Layouts
+ 
+ import QGroundControl
+ 
+ import QGroundControl.FactControls
+ import QGroundControl.Controls
+ 
+ 
+ SettingsPage {
+     property var    _settingsManager:            QGroundControl.settingsManager
+     property var    _videoManager:              QGroundControl.videoManager
+     property var    _videoSettings:             _settingsManager.videoSettings
+     property string _videoSource:               _videoSettings.videoSource.rawValue
+-    property bool   _isGST:                     _videoManager.gstreamerEnabled
+     property bool   _isStreamSource:            _videoManager.isStreamSource
+     property bool   _isUDP264:                  _isStreamSource && (_videoSource === _videoSettings.udp264VideoSource)
+     property bool   _isUDP265:                  _isStreamSource && (_videoSource === _videoSettings.udp265VideoSource)
+     property bool   _isRTSP:                    _isStreamSource && (_videoSource === _videoSettings.rtspVideoSource)
+     property bool   _isTCP:                     _isStreamSource && (_videoSource === _videoSettings.tcpVideoSource)
+     property bool   _isMPEGTS:                  _isStreamSource && (_videoSource === _videoSettings.mpegtsVideoSource)
+     property bool   _videoAutoStreamConfig:     _videoManager.autoStreamConfigured
+     property bool   _videoSourceDisabled:       _videoSource === _videoSettings.disabledVideoSource
+     property real   _urlFieldWidth:             ScreenTools.defaultFontPixelWidth * 40
+     property bool   _requiresUDPUrl:            _isUDP264 || _isUDP265 || _isMPEGTS
+ 
+     SettingsGroupLayout {
+         Layout.fillWidth:   true
+         heading:            qsTr("Video Source")
+         headingDescription: _videoAutoStreamConfig ? qsTr("Mavlink camera stream is automatically configured") : ""
+         enabled:            !_videoAutoStreamConfig
+ 
+         LabelledFactComboBox {
+             Layout.fillWidth:   true
+             label:              qsTr("Source")
+             indexModel:         false
+             fact:               _videoSettings.videoSource
+             visible:            fact.visible
+         }
+     }
+@@ -77,57 +76,50 @@ SettingsPage {
+             label:                      qsTr("UDP URL")
+             fact:                       _videoSettings.udpUrl
+             visible:                    _requiresUDPUrl && _videoSettings.udpUrl.visible
+         }
+     }
+ 
+     SettingsGroupLayout {
+         Layout.fillWidth:   true
+         heading:            qsTr("Settings")
+         visible:            !_videoSourceDisabled
+ 
+         LabelledFactTextField {
+             Layout.fillWidth:   true
+             label:              qsTr("Aspect Ratio")
+             fact:               _videoSettings.aspectRatio
+             visible:            !_videoAutoStreamConfig && _isStreamSource && _videoSettings.aspectRatio.visible
+         }
+ 
+         FactCheckBoxSlider {
+             Layout.fillWidth:   true
+             text:               qsTr("Stop recording when disarmed")
+             fact:               _videoSettings.disableWhenDisarmed
+             visible:            !_videoAutoStreamConfig && _isStreamSource && fact.visible
+         }
+ 
+-        FactCheckBoxSlider {
+-            Layout.fillWidth:   true
+-            text:               qsTr("Low Latency Mode")
+-            fact:               _videoSettings.lowLatencyMode
+-            visible:            !_videoAutoStreamConfig && _isStreamSource && fact.visible && _isGST
+-        }
+-
+         LabelledFactComboBox {
+             Layout.fillWidth:   true
+             label:              qsTr("Video decode priority")
+             fact:               _videoSettings.forceVideoDecoder
+             visible:            fact.visible
+             indexModel:         false
+         }
+     }
+ 
+     SettingsGroupLayout {
+         Layout.fillWidth: true
+         heading:            qsTr("Local Video Storage")
+ 
+         LabelledFactComboBox {
+             Layout.fillWidth:   true
+             label:              qsTr("Record File Format")
+             fact:               _videoSettings.recordingFormat
+             visible:            _videoSettings.recordingFormat.visible
+         }
+ 
+         FactCheckBoxSlider {
+             Layout.fillWidth:   true
+             text:               qsTr("Auto-Delete Saved Recordings")
+             fact:               _videoSettings.enableStorageLimit
+             visible:            fact.visible
+diff --git a/src/Utilities/QGCLoggingCategory.cc b/src/Utilities/QGCLoggingCategory.cc
+index d26b3c7e1480e1089e1f2ddd1098fbc2ed34f756..b31ab83a6573f442d8286af5fdb2400ff89215e9 100644
+--- a/src/Utilities/QGCLoggingCategory.cc
++++ b/src/Utilities/QGCLoggingCategory.cc
+@@ -79,43 +79,38 @@ void QGCLoggingCategoryRegister::setFilterRulesFromSettings(const QString &comma
+         }
+     }
+ 
+     // Command line rules take precedence, so they go last in the list
+     if (!commandLineLoggingOptions.isEmpty()) {
+         const QStringList logList = commandLineLoggingOptions.split(",");
+ 
+         if (logList[0] == QStringLiteral("full")) {
+             filterRules += QStringLiteral("*Log.debug=true\n");
+             for (const QString &log : logList) {
+                 filterRules += filterRuleFormat.arg(log);
+             }
+         } else {
+             for (const QString &category: logList) {
+                 filterRules += filterRuleFormat.arg(category);
+                 if (category == kVideoAllLogCategory) {
+                     videoAllLogSet = true;
+                 }
+             }
+         }
+     }
+ 
+     if (videoAllLogSet) {
+         filterRules += filterRuleFormat.arg("qgc.videomanager.videomanager");
+         filterRules += filterRuleFormat.arg("qgc.videomanager.subtitlewriter");
+-        filterRules += filterRuleFormat.arg("qgc.videomanager.videoreceiver.gstreamer");
+-        filterRules += filterRuleFormat.arg("qgc.videomanager.videoreceiver.gstreamer.gstvideoreceiver");
+         filterRules += filterRuleFormat.arg("qgc.videomanager.videoreceiver.qtmultimedia.qtmultimediareceiver");
+         filterRules += filterRuleFormat.arg("qgc.videomanager.videoreceiver.qtmultimedia.uvcreceiver");
+     }
+ 
+-    // Logging from GStreamer library itself controlled by gstreamer debug levels is always turned on
+-    filterRules += filterRuleFormat.arg("qgc.videomanager.videoreceiver.gstreamer.api");
+-
+     filterRules += QStringLiteral("qt.qml.connections=false");
+ 
+     qCDebug(QGCLoggingCategoryRegisterLog) << "Filter rules" << filterRules;
+     const QLoggingCategory::CategoryFilter categoryFilter = QLoggingCategory::installFilter(qgcCategoryFilter);
+     if (!defaultCategoryFilter) {
+         defaultCategoryFilter = categoryFilter;
+     }
+     QLoggingCategory::setFilterRules(filterRules);
+ }
+diff --git a/src/VideoManager/VideoManager.cc b/src/VideoManager/VideoManager.cc
+index d1a3aee3e6ea90eebe0d4474e26917cbfa981445..6a5f4fb5dbb6d98431c084877331fe473921f5d6 100644
+--- a/src/VideoManager/VideoManager.cc
++++ b/src/VideoManager/VideoManager.cc
+@@ -1,87 +1,73 @@
+ /****************************************************************************
+  *
+  * (c) 2009-2024 QGROUNDCONTROL PROJECT <http://www.qgroundcontrol.org>
+  *
+  * QGroundControl is licensed according to the terms in the file
+  * COPYING.md in the root of the source code directory.
+  *
+  ****************************************************************************/
+ 
+ #include "VideoManager.h"
+ #include "AppSettings.h"
+ #include "MultiVehicleManager.h"
+ #include "QGCApplication.h"
+ #include "QGCCameraManager.h"
+ #include "QGCCorePlugin.h"
+ #include "QGCLoggingCategory.h"
+ #include "SettingsManager.h"
+ #include "SubtitleWriter.h"
+ #include "Vehicle.h"
+ #include "VideoReceiver.h"
+ #include "VideoSettings.h"
+-#ifdef QGC_GST_STREAMING
+-#include "GStreamer.h"
+-#else
+-#include "VideoItemStub.h"
+-#endif
+-#include "QtMultimediaReceiver.h"
+-#include "UVCReceiver.h"
+ 
+ #include <QtCore/QApplicationStatic>
+ #include <QtCore/QDir>
+ #include <QtQml/QQmlEngine>
+ #include <QtQuick/QQuickItem>
+ #include <QtQuick/QQuickWindow>
+ #include <QtCore/QTimer>
+ 
+ QGC_LOGGING_CATEGORY(VideoManagerLog, "qgc.videomanager.videomanager")
+ 
+ static constexpr const char *kFileExtension[VideoReceiver::FILE_FORMAT_MAX + 1] = {
+     "mkv",
+     "mov",
+     "mp4"
+ };
+ 
+ Q_APPLICATION_STATIC(VideoManager, _videoManagerInstance);
+ 
+ VideoManager::VideoManager(QObject *parent)
+     : QObject(parent)
+     , _subtitleWriter(new SubtitleWriter(this))
+     , _videoSettings(SettingsManager::instance()->videoSettings())
+ {
+     qCDebug(VideoManagerLog) << this;
+ 
+     (void) qRegisterMetaType<VideoReceiver::STATUS>("STATUS");
+ 
+-#ifdef QGC_GST_STREAMING
+-    if (!GStreamer::initialize()) {
+-        qCCritical(VideoManagerLog) << "Failed To Initialize GStreamer";
+-    }
+-#else
+-    (void) qmlRegisterType<VideoItemStub>("org.freedesktop.gstreamer.Qt6GLVideoItem", 1, 0, "GstGLQt6VideoItem");
+-#endif
+ }
+ 
+ VideoManager::~VideoManager()
+ {
+     qCDebug(VideoManagerLog) << this;
+ }
+ 
+ VideoManager *VideoManager::instance()
+ {
+     return _videoManagerInstance();
+ }
+ 
+ void VideoManager::init(QQuickWindow *window)
+ {
+     if (_initialized) {
+         return;
+     }
+ 
+     if (!window) {
+         qCCritical(VideoManagerLog) << "Failed To Init Video Manager - window is NULL";
+         return;
+     }
+ 
+     // TODO: VideoSettings _configChanged/streamConfiguredChanged
+     (void) connect(_videoSettings->videoSource(), &Fact::rawValueChanged, this, &VideoManager::_videoSourceChanged);
+@@ -259,70 +245,51 @@ double VideoManager::thermalHfov() const
+         }
+     }
+ 
+     return _videoSettings->aspectRatio()->rawValue().toDouble();
+ }
+ 
+ bool VideoManager::hasThermal() const
+ {
+     for (VideoReceiver *receiver : _videoReceivers) {
+         QGCVideoStreamInfo *pInfo = receiver->videoStreamInfo();
+         if (receiver->isThermal() && pInfo && pInfo->isThermal()) {
+             return true;
+         }
+     }
+ 
+     return false;
+ }
+ 
+ bool VideoManager::hasVideo() const
+ {
+     return (_videoSettings->streamEnabled()->rawValue().toBool() && _videoSettings->streamConfigured());
+ }
+ 
+ bool VideoManager::isUvc() const
+ {
+-    return (!_uvcVideoSourceID.isEmpty() && uvcEnabled() && hasVideo());
+-}
+-
+-bool VideoManager::gstreamerEnabled()
+-{
+-#ifdef QGC_GST_STREAMING
+-    return true;
+-#else
+     return false;
+-#endif
+-}
+-
+-bool VideoManager::uvcEnabled()
+-{
+-    return UVCReceiver::enabled();
+-}
+-
+-bool VideoManager::qtmultimediaEnabled()
+-{
+-    return QtMultimediaReceiver::enabled();
+ }
+ 
+ void VideoManager::setfullScreen(bool on)
+ {
+     if (on) {
+         if (!_activeVehicle || _activeVehicle->vehicleLinkManager()->communicationLost()) {
+             on = false;
+         }
+     }
+ 
+     if (on != _fullScreen) {
+         _fullScreen = on;
+         emit fullScreenChanged();
+     }
+ }
+ 
+ bool VideoManager::isStreamSource() const
+ {
+     static const QStringList videoSourceList = {
+         VideoSettings::videoSourceUDPH264,
+         VideoSettings::videoSourceUDPH265,
+         VideoSettings::videoSourceRTSP,
+         VideoSettings::videoSourceTCP,
+         VideoSettings::videoSourceMPEGTS,
+         VideoSettings::videoSource3DRSolo,
+@@ -353,71 +320,57 @@ void VideoManager::_videoSourceChanged()
+         }
+     } else {
+         for (VideoReceiver *receiver : std::as_const(_videoReceivers)) {
+             receiver->setVideoStreamInfo(nullptr);
+             changed |= _updateSettings(receiver);
+         }
+     }
+ 
+     if (changed) {
+         emit hasVideoChanged();
+         emit isStreamSourceChanged();
+         emit isAutoStreamChanged();
+ 
+         if (hasVideo()) {
+             _restartAllVideos();
+         } else {
+             stopVideo();
+         }
+ 
+         qCDebug(VideoManagerLog) << "New Video Source:" << _videoSettings->videoSource()->rawValue().toString();
+     }
+ }
+ 
+ bool VideoManager::_updateUVC(VideoReceiver *receiver)
+ {
+-    bool result = false;
+-
+-    const QString oldUvcVideoSrcID = _uvcVideoSourceID;
+-
+-    if (!uvcEnabled() || !hasVideo() || isStreamSource()) {
+-        _uvcVideoSourceID = QString();
+-    } else {
+-        _uvcVideoSourceID = UVCReceiver::getSourceId();
+-    }
+-
+-    if (oldUvcVideoSrcID != _uvcVideoSourceID) {
+-        qCDebug(VideoManagerLog) << "UVC changed from [" << oldUvcVideoSrcID << "] to [" << _uvcVideoSourceID << "]";
+-        if (!_uvcVideoSourceID.isEmpty()) {
+-            UVCReceiver::checkPermission();
+-        }
+-        result = true;
++    Q_UNUSED(receiver);
++    if (!_uvcVideoSourceID.isEmpty()) {
++        _uvcVideoSourceID.clear();
+         emit uvcVideoSourceIDChanged();
+         emit isUvcChanged();
+     }
+-
+-    return result;
++    return false;
+ }
+ 
+ bool VideoManager::autoStreamConfigured() const
+ {
+     for (VideoReceiver *receiver : _videoReceivers) {
+         QGCVideoStreamInfo *pInfo = receiver->videoStreamInfo();
+         if (!receiver->isThermal() && pInfo && !pInfo->isThermal()) {
+             return !pInfo->uri().isEmpty();
+         }
+     }
+ 
+     return false;
+ }
+ 
+ bool VideoManager::_updateAutoStream(VideoReceiver *receiver)
+ {
+     const QGCVideoStreamInfo *pInfo = receiver->videoStreamInfo();
+     if (!pInfo) {
+         return false;
+     }
+ 
+     qCDebug(VideoManagerLog) << QString("Configure stream (%1):").arg(receiver->name()) << pInfo->uri();
+ 
+     QString source, url;
+     switch (pInfo->type()) {
+@@ -629,52 +582,51 @@ void VideoManager::_stopReceiver(VideoReceiver *receiver)
+ void VideoManager::stopVideo()
+ {
+     for (VideoReceiver *receiver : std::as_const(_videoReceivers)) {
+         _stopReceiver(receiver);
+     }
+ }
+ 
+ void VideoManager::_startReceiver(VideoReceiver *receiver)
+ {
+     if (!receiver) {
+         qCDebug(VideoManagerLog) << "VideoReceiver is NULL";
+         return;
+     }
+ 
+     if (receiver->started()) {
+         qCDebug(VideoManagerLog) << "VideoReceiver is already started" << receiver->name();
+         return;
+     }
+ 
+     if (receiver->uri().isEmpty()) {
+         qCDebug(VideoManagerLog) << "VideoUri is NULL" << receiver->name();
+         return;
+     }
+ 
+     const QString source = _videoSettings->videoSource()->rawValue().toString();
+-    /* The gstreamer rtsp source will switch to tcp if udp is not available after 5 seconds.
+-       So we should allow for some negotiation time for rtsp */
++    /* RTSP sources may switch to TCP if UDP is unavailable, so allow some negotiation time. */
+ 
+     const uint32_t timeout = ((source == VideoSettings::videoSourceRTSP) ? _videoSettings->rtspTimeout()->rawValue().toUInt() : 3);
+ 
+     receiver->start(timeout);
+ }
+ 
+ void VideoManager::_initVideoReceiver(VideoReceiver *receiver, QQuickWindow *window)
+ {
+     if (_videoReceivers.contains(receiver)) {
+         qCWarning(VideoManagerLog) << "Receiver already initialized";
+     }
+ 
+     QQuickItem *widget = window->findChild<QQuickItem*>(receiver->name());
+     if (!widget) {
+         qCCritical(VideoManagerLog) << "stream widget not found" << receiver->name();
+     }
+     receiver->setWidget(widget);
+ 
+     void *sink = QGCCorePlugin::instance()->createVideoSink(receiver->widget(), receiver);
+     if (!sink) {
+         qCCritical(VideoManagerLog) << "createVideoSink() failed" << receiver->name();
+     }
+     receiver->setSink(sink);
+ 
+     (void) connect(receiver, &VideoReceiver::onStartComplete, this, [this, receiver](VideoReceiver::STATUS status) {
+diff --git a/src/VideoManager/VideoManager.h b/src/VideoManager/VideoManager.h
+index 9e851e0cdc6e1cdfb969b70b4056affd0d40556f..869d4544bc66df8cd9d18d0abf147539a9056518 100644
+--- a/src/VideoManager/VideoManager.h
++++ b/src/VideoManager/VideoManager.h
+@@ -8,104 +8,98 @@
+  ****************************************************************************/
+ 
+ #pragma once
+ 
+ #include <QtCore/QLoggingCategory>
+ #include <QtCore/QObject>
+ #include <QtCore/QRunnable>
+ #include <QtCore/QSize>
+ #include <QtQmlIntegration/QtQmlIntegration>
+ 
+ Q_DECLARE_LOGGING_CATEGORY(VideoManagerLog)
+ 
+ class QQuickWindow;
+ class FinishVideoInitialization;
+ class SubtitleWriter;
+ class Vehicle;
+ class VideoReceiver;
+ class VideoSettings;
+ 
+ class VideoManager : public QObject
+ {
+     Q_OBJECT
+     QML_ELEMENT
+     QML_UNCREATABLE("")
+     Q_MOC_INCLUDE("Vehicle.h")
+-    Q_PROPERTY(bool     gstreamerEnabled        READ gstreamerEnabled                           CONSTANT)
+-    Q_PROPERTY(bool     qtmultimediaEnabled     READ qtmultimediaEnabled                        CONSTANT)
+-    Q_PROPERTY(bool     uvcEnabled              READ uvcEnabled                                 CONSTANT)
+     Q_PROPERTY(bool     autoStreamConfigured    READ autoStreamConfigured                       NOTIFY autoStreamConfiguredChanged)
+     Q_PROPERTY(bool     decoding                READ decoding                                   NOTIFY decodingChanged)
+     Q_PROPERTY(bool     fullScreen              READ fullScreen             WRITE setfullScreen NOTIFY fullScreenChanged)
+     Q_PROPERTY(bool     hasThermal              READ hasThermal                                 NOTIFY decodingChanged)
+     Q_PROPERTY(bool     hasVideo                READ hasVideo                                   NOTIFY hasVideoChanged)
+     Q_PROPERTY(bool     isStreamSource          READ isStreamSource                             NOTIFY isStreamSourceChanged)
+     Q_PROPERTY(bool     isUvc                   READ isUvc                                      NOTIFY isUvcChanged)
+     Q_PROPERTY(bool     recording               READ recording                                  NOTIFY recordingChanged)
+     Q_PROPERTY(bool     streaming               READ streaming                                  NOTIFY streamingChanged)
+     Q_PROPERTY(double   aspectRatio             READ aspectRatio                                NOTIFY aspectRatioChanged)
+     Q_PROPERTY(double   hfov                    READ hfov                                       NOTIFY aspectRatioChanged)
+     Q_PROPERTY(double   thermalAspectRatio      READ thermalAspectRatio                         NOTIFY aspectRatioChanged)
+     Q_PROPERTY(double   thermalHfov             READ thermalHfov                                NOTIFY aspectRatioChanged)
+     Q_PROPERTY(QSize    videoSize               READ videoSize                                  NOTIFY videoSizeChanged)
+     Q_PROPERTY(QString  imageFile               READ imageFile                                  NOTIFY imageFileChanged)
+     Q_PROPERTY(QString  uvcVideoSourceID        READ uvcVideoSourceID                           NOTIFY uvcVideoSourceIDChanged)
+ 
+ public:
+     explicit VideoManager(QObject *parent = nullptr);
+     ~VideoManager();
+ 
+     static VideoManager *instance();
+ 
+     Q_INVOKABLE void grabImage(const QString &imageFile = QString());
+     Q_INVOKABLE void startRecording(const QString &videoFile = QString());
+     Q_INVOKABLE void startVideo();
+     Q_INVOKABLE void stopRecording();
+     Q_INVOKABLE void stopVideo();
+ 
+     void init(QQuickWindow *rootWindow);
+     void cleanup();
+     bool autoStreamConfigured() const;
+     bool decoding() const { return _decoding; }
+     bool fullScreen() const { return _fullScreen; }
+     bool hasThermal() const;
+     bool hasVideo() const;
+     bool isStreamSource() const;
+     bool isUvc() const;
+     bool recording() const { return _recording; }
+     bool streaming() const { return _streaming; }
+     double aspectRatio() const;
+     double hfov() const;
+     double thermalAspectRatio() const;
+     double thermalHfov() const;
+     QSize videoSize() const { return _videoSize; }
+     QString imageFile() const { return _imageFile; }
+     QString uvcVideoSourceID() const { return _uvcVideoSourceID; }
+     void setfullScreen(bool on);
+-    static bool gstreamerEnabled();
+-    static bool qtmultimediaEnabled();
+-    static bool uvcEnabled();
+ 
+ signals:
+     void aspectRatioChanged();
+     void autoStreamConfiguredChanged();
+     void decodingChanged();
+     void fullScreenChanged();
+     void hasVideoChanged();
+     void imageFileChanged(const QString &filename);
+     void isAutoStreamChanged();
+     void isStreamSourceChanged();
+     void isUvcChanged();
+     void recordingChanged(bool recording);
+     void recordingStarted(const QString &filename);
+     void streamingChanged();
+     void uvcVideoSourceIDChanged();
+     void videoSizeChanged();
+ 
+ private slots:
+     void _communicationLostChanged(bool communicationLost);
+     void _setActiveVehicle(Vehicle *vehicle);
+     void _videoSourceChanged();
+ 
+ private:
+     void _initVideoReceiver(VideoReceiver *receiver, QQuickWindow *window);
+     bool _updateAutoStream(VideoReceiver *receiver);
+diff --git a/src/VideoManager/VideoReceiver/CMakeLists.txt b/src/VideoManager/VideoReceiver/CMakeLists.txt
+index dab1dda4a1268bfdbd8f57f3555c39abadb5c486..60ccc75abbe3360cdb723b0a7b40ca936bb8c831 100644
+--- a/src/VideoManager/VideoReceiver/CMakeLists.txt
++++ b/src/VideoManager/VideoReceiver/CMakeLists.txt
+@@ -1,6 +1,3 @@
+ target_sources(${CMAKE_PROJECT_NAME} PRIVATE VideoReceiver.h)
+ 
+ target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+-
+-add_subdirectory(GStreamer)
+-add_subdirectory(QtMultimedia)
+diff --git a/src/VideoManager/VideoReceiver/QtMultimedia/CMakeLists.txt b/src/VideoManager/VideoReceiver/QtMultimedia/CMakeLists.txt
+deleted file mode 100644
+index d0d2cd7de1c21242bb8ea4b3bf61a0dc2a3297bb..0000000000000000000000000000000000000000
+--- a/src/VideoManager/VideoReceiver/QtMultimedia/CMakeLists.txt
++++ /dev/null
+@@ -1,17 +0,0 @@
+-target_sources(${CMAKE_PROJECT_NAME}
+-    PRIVATE
+-        QtMultimediaReceiver.cc
+-        QtMultimediaReceiver.h
+-        UVCReceiver.cc
+-        UVCReceiver.h
+-)
+-
+-target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+-
+-if(QGC_ENABLE_QT_VIDEOSTREAMING)
+-    target_compile_definitions(${CMAKE_PROJECT_NAME} PRIVATE QGC_QT_STREAMING)
+-endif()
+-
+-if(NOT QGC_ENABLE_UVC)
+-    target_compile_definitions(${CMAKE_PROJECT_NAME} PRIVATE QGC_DISABLE_UVC)
+-endif()
+diff --git a/src/VideoManager/VideoReceiver/QtMultimedia/QtMultimediaReceiver.cc b/src/VideoManager/VideoReceiver/QtMultimedia/QtMultimediaReceiver.cc
+deleted file mode 100644
+index 9c3f01c0e2b5204551537bf2d4f9cb12a2b00d9f..0000000000000000000000000000000000000000
+--- a/src/VideoManager/VideoReceiver/QtMultimedia/QtMultimediaReceiver.cc
++++ /dev/null
+@@ -1,331 +0,0 @@
+-/****************************************************************************
+- *
+- * (c) 2009-2024 QGROUNDCONTROL PROJECT <http://www.qgroundcontrol.org>
+- *
+- * QGroundControl is licensed according to the terms in the file
+- * COPYING.md in the root of the source code directory.
+- *
+- ****************************************************************************/
+-
+-#include "QtMultimediaReceiver.h"
+-#include "QGCLoggingCategory.h"
+-
+-#include <QtMultimedia/QMediaCaptureSession>
+-#include <QtMultimedia/QMediaFormat>
+-#include <QtMultimedia/QMediaMetaData>
+-#include <QtMultimedia/QMediaPlayer>
+-#include <QtMultimedia/QMediaRecorder>
+-#include <QtMultimedia/QVideoFrame>
+-#include <QtMultimedia/QVideoSink>
+-#include <QtMultimediaQuick/private/qquickvideooutput_p.h>
+-#include <QtQuick/QQuickItem>
+-#include <QtQuick/QQuickItemGrabResult>
+-
+-QGC_LOGGING_CATEGORY(QtMultimediaReceiverLog, "qgc.videomanager.videoreceiver.qtmultimedia.qtmultimediareceiver")
+-
+-QtMultimediaReceiver::QtMultimediaReceiver(QObject *parent)
+-    : VideoReceiver(parent)
+-    , _mediaPlayer(new QMediaPlayer(this))
+-    , _captureSession(new QMediaCaptureSession(this))
+-    , _mediaRecorder(new QMediaRecorder(this))
+-{
+-    // qCDebug(QtMultimediaReceiverLog) << Q_FUNC_INFO << this;
+-
+-    _captureSession->setRecorder(_mediaRecorder);
+-
+-    (void) connect(_mediaPlayer, &QMediaPlayer::playingChanged, this, &QtMultimediaReceiver::streamingChanged);
+-    (void) connect(_mediaPlayer, &QMediaPlayer::hasVideoChanged, this, &QtMultimediaReceiver::decodingChanged);
+-    (void) connect(_mediaPlayer, &QMediaPlayer::playbackStateChanged, this, [this](QMediaPlayer::PlaybackState newState) {
+-        if (newState == QMediaPlayer::PlaybackState::PlayingState) {
+-            _frameTimer.start();
+-        } else if (newState == QMediaPlayer::PlaybackState::StoppedState) {
+-            _frameTimer.stop();
+-        }
+-    });
+-    (void) connect(_mediaPlayer, &QMediaPlayer::mediaStatusChanged, this, [this](QMediaPlayer::MediaStatus status) {
+-        switch (status) {
+-        case QMediaPlayer::MediaStatus::LoadingMedia:
+-            _streamDevice = _mediaPlayer->sourceDevice();
+-            break;
+-        default:
+-            break;
+-        }
+-    });
+-    (void) connect(_mediaPlayer, &QMediaPlayer::metaDataChanged, this, []() {
+-        /*const QMediaMetaData metaData = _mediaPlayer->metaData();
+-        const QVariant resolution = metaData.value(QMediaMetaData::Key::Resolution);
+-        const QSize videoSize = resolution.toSize();*/
+-    });
+-    (void) connect(_mediaPlayer, &QMediaPlayer::bufferProgressChanged, this, [](float filled) {
+-        qCDebug(QtMultimediaReceiverLog) << Q_FUNC_INFO << "Buffer Progress:" << filled;
+-    });
+-    (void) connect(_mediaPlayer, &QMediaPlayer::errorOccurred, this, [this](QMediaPlayer::Error error, const QString &errorString) {
+-        switch (error) {
+-        case QMediaPlayer::Error::NetworkError:
+-            break;
+-        default:
+-            break;
+-        }
+-
+-        qCDebug(QtMultimediaReceiverLog) << Q_FUNC_INFO << errorString;
+-    });
+-
+-    // _mediaRecorder->setEncodingMode(QMediaRecorder::EncodingMode::AverageBitRateEncoding);
+-    // _mediaRecorder->setQuality(QMediaRecorder::Quality::HighQuality);
+-    // _mediaRecorder->setVideoBitRate()
+-    _mediaRecorder->setVideoFrameRate(0);
+-    _mediaRecorder->setVideoResolution(QSize());
+-    (void) connect(_mediaRecorder, &QMediaRecorder::recorderStateChanged, this, [this](QMediaRecorder::RecorderState state) {
+-        if (state == QMediaRecorder::RecorderState::RecordingState) {
+-            emit recordingStarted(_mediaRecorder->actualLocation().toString());
+-        }
+-        emit recordingChanged(_mediaRecorder->recorderState() == QMediaRecorder::RecorderState::RecordingState);
+-    });
+-    (void) connect(_mediaRecorder, &QMediaRecorder::errorOccurred, this, [this](QMediaRecorder::Error error, const QString &errorString) {
+-        switch (error) {
+-        case QMediaRecorder::Error::OutOfSpaceError:
+-            break;
+-        default:
+-            break;
+-        }
+-
+-        qCDebug(QtMultimediaReceiverLog) << Q_FUNC_INFO << errorString;
+-    });
+-
+-    _frameTimer.setSingleShot(true);
+-    _frameTimer.setTimerType(Qt::PreciseTimer);
+-    (void) connect(&_frameTimer, &QTimer::timeout, this, &QtMultimediaReceiver::timeout);
+-}
+-
+-QtMultimediaReceiver::~QtMultimediaReceiver()
+-{
+-    qCDebug(QtMultimediaReceiverLog) << Q_FUNC_INFO << this;
+-}
+-
+-bool QtMultimediaReceiver::enabled()
+-{
+-#ifdef QGC_QT_STREAMING
+-    return true;
+-#else
+-    return false;
+-#endif
+-}
+-
+-void *QtMultimediaReceiver::createVideoSink(QQuickItem *widget, QObject *parent)
+-{
+-    Q_UNUSED(parent);
+-
+-    QVideoSink *videoSink = nullptr;
+-    if (widget) {
+-        QQuickVideoOutput *const videoOutput = reinterpret_cast<QQuickVideoOutput*>(widget);
+-        videoSink = videoOutput->videoSink();
+-    }
+-
+-    return videoSink;
+-}
+-
+-void QtMultimediaReceiver::releaseVideoSink(void *sink)
+-{
+-    /*if (!sink) {
+-        return;
+-    }
+-
+-    QVideoSink* const videoSink = reinterpret_cast<QVideoSink*>(sink);
+-    videoSink->deleteLater();*/
+-}
+-
+-VideoReceiver *QtMultimediaReceiver::createVideoReceiver(QObject *parent)
+-{
+-    Q_UNUSED(parent);
+-    return new QtMultimediaReceiver(nullptr);
+-}
+-
+-void QtMultimediaReceiver::start(uint32_t timeout)
+-{
+-    qCDebug(QtMultimediaReceiverLog) << Q_FUNC_INFO;
+-
+-    if (_mediaPlayer->isPlaying()) {
+-        qCDebug(QtMultimediaReceiverLog) << "Already running!";
+-        emit onStartComplete(STATUS_INVALID_STATE);
+-        return;
+-    }
+-
+-    if (_uri.isEmpty()) {
+-        qCDebug(QtMultimediaReceiverLog) << "Failed because URI is not specified";
+-        emit onStartComplete(STATUS_INVALID_URL);
+-        return;
+-    }
+-    _mediaPlayer->setSource(QUrl::fromUserInput(_uri));
+-
+-    _frameTimer.setInterval(timeout);
+-
+-    // QAbstractVideoBuffer *buffer = _videoSink->videoFrame()->videoBuffer();
+-
+-    /*if (!_mediaPlayer->hasVideo()) {
+-        emit onStartComplete(STATUS_FAIL);
+-    }*/
+-
+-    _mediaPlayer->play();
+-
+-    qCDebug(QtMultimediaReceiverLog) << "Starting";
+-
+-    emit onStartComplete(STATUS_OK);
+-}
+-
+-void QtMultimediaReceiver::stop()
+-{
+-    qCDebug(QtMultimediaReceiverLog) << Q_FUNC_INFO;
+-
+-    if (!_mediaPlayer->isPlaying()) {
+-        qCDebug(QtMultimediaReceiverLog) << "Already stopped!";
+-        emit onStopComplete(STATUS_INVALID_STATE);
+-        return;
+-    }
+-
+-    if (_mediaPlayer->source().isEmpty()) {
+-        qCWarning(QtMultimediaReceiverLog) << "Stop called on empty URI";
+-        emit onStopComplete(STATUS_FAIL);
+-        return;
+-    }
+-
+-    _mediaPlayer->stop();
+-
+-    qCDebug(QtMultimediaReceiverLog) << "Stopped";
+-
+-    emit onStopComplete(STATUS_OK);
+-}
+-
+-void QtMultimediaReceiver::startDecoding(void *sink)
+-{
+-    qCDebug(QtMultimediaReceiverLog) << Q_FUNC_INFO;
+-
+-    if (!sink) {
+-        qCCritical(QtMultimediaReceiverLog) << "VideoSink is NULL";
+-        emit onStartDecodingComplete(STATUS_FAIL);
+-        return;
+-    }
+-
+-    if (_videoSink) {
+-        qCWarning(QtMultimediaReceiverLog) << "VideoSink is already set";
+-    }
+-
+-    if (_videoSizeUpdater) {
+-        qCWarning(QtMultimediaReceiverLog) << "VideoSizeConnection is already set";
+-    }
+-
+-    _videoSink = reinterpret_cast<QVideoSink*>(sink);
+-    _videoSizeUpdater = connect(_videoSink, &QVideoSink::videoSizeChanged, this, [this]() {
+-        emit videoSizeChanged(_videoSink->videoSize());
+-    });
+-    _videoFrameUpdater = connect(_videoSink, &QVideoSink::videoFrameChanged, this, [this](const QVideoFrame &frame) {
+-        if (frame.isValid()) {
+-            _frameTimer.start();
+-        }
+-    });
+-    _rhi = _videoSink->rhi();
+-    _videoSink->setSubtitleText("");
+-
+-    _mediaPlayer->setVideoSink(_videoSink);
+-
+-    qCDebug(QtMultimediaReceiverLog) << "Decoding";
+-
+-    emit onStartDecodingComplete(STATUS_OK);
+-}
+-
+-void QtMultimediaReceiver::stopDecoding()
+-{
+-    qCDebug(QtMultimediaReceiverLog) << Q_FUNC_INFO;
+-
+-    if (!_videoSink) {
+-        qCWarning(QtMultimediaReceiverLog) << "VideoSink is NULL";
+-        emit onStartDecodingComplete(STATUS_INVALID_STATE);
+-        return;
+-    }
+-
+-    (void) disconnect(_videoSizeUpdater);
+-    _mediaPlayer->setVideoSink(nullptr);
+-    _videoSink = nullptr;
+-
+-    qCDebug(QtMultimediaReceiverLog) << "Stopped Decoding";
+-
+-    emit onStopDecodingComplete(STATUS_OK);
+-}
+-
+-void QtMultimediaReceiver::startRecording(const QString &videoFile, FILE_FORMAT format)
+-{
+-    qCDebug(QtMultimediaReceiverLog) << Q_FUNC_INFO;
+-
+-    if (!_mediaRecorder->isAvailable()) {
+-        qCWarning(QtMultimediaReceiverLog) << "Recording Unavailable";
+-        emit onStartRecordingComplete(STATUS_FAIL);
+-        return;
+-    }
+-
+-    switch (format) {
+-    case FILE_FORMAT_MKV:
+-        _mediaRecorder->setMediaFormat(QMediaFormat::FileFormat::Matroska);
+-        break;
+-    case FILE_FORMAT_MOV:
+-        _mediaRecorder->setMediaFormat(QMediaFormat::FileFormat::QuickTime);
+-        break;
+-    case FILE_FORMAT_MP4:
+-        _mediaRecorder->setMediaFormat(QMediaFormat::FileFormat::MPEG4);
+-        break;
+-    default:
+-        // QMediaFormat::AVI, WMV, Ogg, WebM
+-        _mediaRecorder->setMediaFormat(QMediaFormat::FileFormat::UnspecifiedFormat);
+-        break;
+-    }
+-
+-    _mediaRecorder->setOutputLocation(QUrl::fromLocalFile(videoFile));
+-    _recordingOutput = _mediaRecorder->outputLocation().toLocalFile();
+-    _mediaRecorder->record();
+-
+-    qCDebug(QtMultimediaReceiverLog) << "Recording";
+-
+-    emit onStartRecordingComplete(STATUS_OK);
+-}
+-
+-void QtMultimediaReceiver::stopRecording()
+-{
+-    qCDebug(QtMultimediaReceiverLog) << Q_FUNC_INFO;
+-
+-    _mediaRecorder->stop();
+-
+-    qCDebug(QtMultimediaReceiverLog) << "Stopped Recording";
+-
+-    emit onStopRecordingComplete(STATUS_OK);
+-}
+-
+-void QtMultimediaReceiver::takeScreenshot(const QString &imageFile)
+-{
+-    qCDebug(QtMultimediaReceiverLog) << Q_FUNC_INFO;
+-
+-    if (!_videoSink) {
+-        qCWarning(QtMultimediaReceiverLog) << "Video Sink is NULL";
+-        emit onTakeScreenshotComplete(STATUS_FAIL);
+-        return;
+-    }
+-
+-    const QVideoFrame frame = _videoSink->videoFrame();
+-    if (!frame.isValid() || !frame.isReadable()) {
+-        qCWarning(QtMultimediaReceiverLog) << "Screenshot Frame is Invalid";
+-        emit onTakeScreenshotComplete(STATUS_FAIL);
+-        return;
+-    }
+-
+-    // const QVideoFrameFormat frameFormat = frame.surfaceFormat();
+-    // const QImage frameImage = frame.toImage();
+-
+-    _videoOutput = reinterpret_cast<QQuickVideoOutput*>(_mediaPlayer->videoOutput());
+-    const QSize targetSize = _mediaRecorder->videoResolution();
+-    QSharedPointer<QQuickItemGrabResult> screenshot = _videoOutput->grabToImage(targetSize);
+-    // (void) connect(&screenshot, &QQuickItemGrabResult::ready, this, [screenshot, imageFile]() {
+-        // screenshot->saveToFile(imageFile);
+-    // }
+-    screenshot->saveToFile(imageFile);
+-
+-    qCDebug(QtMultimediaReceiverLog) << "Screenshot";
+-
+-    emit onTakeScreenshotComplete(STATUS_NOT_IMPLEMENTED);
+-}
+diff --git a/src/VideoManager/VideoReceiver/QtMultimedia/QtMultimediaReceiver.h b/src/VideoManager/VideoReceiver/QtMultimedia/QtMultimediaReceiver.h
+deleted file mode 100644
+index a9865867b1f6efc4ab3e2d2130fbd943b21479f5..0000000000000000000000000000000000000000
+--- a/src/VideoManager/VideoReceiver/QtMultimedia/QtMultimediaReceiver.h
++++ /dev/null
+@@ -1,62 +0,0 @@
+-/****************************************************************************
+- *
+- * (c) 2009-2024 QGROUNDCONTROL PROJECT <http://www.qgroundcontrol.org>
+- *
+- * QGroundControl is licensed according to the terms in the file
+- * COPYING.md in the root of the source code directory.
+- *
+- ****************************************************************************/
+-
+-#pragma once
+-
+-#include <QtCore/QLoggingCategory>
+-#include <QtCore/QMetaObject>
+-#include <QtCore/QString>
+-#include <QtCore/QTimer>
+-
+-#include "VideoReceiver.h"
+-
+-Q_DECLARE_LOGGING_CATEGORY(QtMultimediaReceiverLog)
+-
+-class QMediaPlayer;
+-class QVideoSink;
+-class QMediaCaptureSession;
+-class QMediaRecorder;
+-class QRhi;
+-class QQuickItem;
+-class QQuickVideoOutput;
+-
+-class QtMultimediaReceiver : public VideoReceiver
+-{
+-    Q_OBJECT
+-
+-public:
+-    explicit QtMultimediaReceiver(QObject *parent = nullptr);
+-    virtual ~QtMultimediaReceiver();
+-
+-    static bool enabled();
+-    static void *createVideoSink(QQuickItem *widget, QObject *parent = nullptr);
+-    static void releaseVideoSink(void *sink);
+-    static VideoReceiver *createVideoReceiver(QObject *parent);
+-
+-public slots:
+-    void start(uint32_t timeout) override;
+-    void stop() override;
+-    void startDecoding(void *sink) override;
+-    void stopDecoding() override;
+-    void startRecording(const QString &videoFile, VideoReceiver::FILE_FORMAT format) override;
+-    void stopRecording() override;
+-    void takeScreenshot(const QString &imageFile) override;
+-
+-protected:
+-    QTimer _frameTimer;
+-    QMediaPlayer *_mediaPlayer = nullptr;
+-    QVideoSink *_videoSink = nullptr;
+-    QMediaCaptureSession *_captureSession = nullptr;
+-    QMediaRecorder *_mediaRecorder = nullptr;
+-    QMetaObject::Connection _videoSizeUpdater;
+-    QMetaObject::Connection _videoFrameUpdater;
+-    QRhi *_rhi = nullptr;
+-    const QIODevice *_streamDevice;
+-    QQuickVideoOutput *_videoOutput = nullptr;
+-};
+diff --git a/src/VideoManager/VideoReceiver/QtMultimedia/UVCReceiver.cc b/src/VideoManager/VideoReceiver/QtMultimedia/UVCReceiver.cc
+deleted file mode 100644
+index 6a680ebc4cdda552026fd6685ae5b1f03532b2c8..0000000000000000000000000000000000000000
+--- a/src/VideoManager/VideoReceiver/QtMultimedia/UVCReceiver.cc
++++ /dev/null
+@@ -1,137 +0,0 @@
+-/****************************************************************************
+- *
+- * (c) 2009-2024 QGROUNDCONTROL PROJECT <http://www.qgroundcontrol.org>
+- *
+- * QGroundControl is licensed according to the terms in the file
+- * COPYING.md in the root of the source code directory.
+- *
+- ****************************************************************************/
+-
+-#include "UVCReceiver.h"
+-#include "QGCApplication.h"
+-#include "QGCLoggingCategory.h"
+-#include "SettingsManager.h"
+-#include "VideoSettings.h"
+-
+-#include <QtCore/QCoreApplication>
+-#include <QtCore/QPermissions>
+-#include <QtMultimedia/QCamera>
+-#include <QtMultimedia/QCameraDevice>
+-#include <QtMultimedia/QImageCapture>
+-#include <QtMultimedia/QMediaCaptureSession>
+-#include <QtMultimedia/QMediaDevices>
+-#include <QtMultimediaQuick/private/qquickvideooutput_p.h>
+-#include <QtQuick/QQuickItem>
+-
+-QGC_LOGGING_CATEGORY(UVCReceiverLog, "qgc.videomanager.videoreceiver.qtmultimedia.uvcreceiver")
+-
+-UVCReceiver::UVCReceiver(QObject *parent)
+-    : QtMultimediaReceiver(parent)
+-    , _camera(new QCamera(this))
+-    , _imageCapture(new QImageCapture(this))
+-    , _mediaDevices(new QMediaDevices(this))
+-{
+-    // qCDebug(UVCReceiverLog) << this;
+-
+-    _captureSession->setCamera(_camera);
+-    _captureSession->setImageCapture(_imageCapture);
+-    _captureSession->setVideoSink(_videoSink);
+-
+-    (void) connect(_captureSession, &QMediaCaptureSession::cameraChanged, this, [this] {
+-        adjustAspectRatio();
+-    });
+-
+-    // QMediaDevices::defaultVideoInput()
+-    (void) connect(_mediaDevices, &QMediaDevices::videoInputsChanged, this, [this] {
+-
+-    });
+-
+-    checkPermission();
+-}
+-
+-UVCReceiver::~UVCReceiver()
+-{
+-    // qCDebug(UVCReceiverLog) << this;
+-}
+-
+-bool UVCReceiver::enabled()
+-{
+-#ifdef QGC_DISABLE_UVC
+-    return false;
+-#else
+-    return !QMediaDevices::videoInputs().isEmpty();
+-#endif
+-}
+-
+-void UVCReceiver::adjustAspectRatio()
+-{
+-    if (!_videoOutput) {
+-        return;
+-    }
+-
+-    const QCameraFormat cameraFormat = _camera->cameraFormat();
+-    if (cameraFormat.isNull()) {
+-        return;
+-    }
+-
+-    const QSize resolution = cameraFormat.resolution();
+-    if (resolution.isValid()) {
+-        const qreal aspectRatio = resolution.width() / resolution.height();
+-        const qreal height = height * aspectRatio;
+-        _videoOutput->setHeight(height * aspectRatio);
+-    }
+-}
+-
+-QCameraDevice UVCReceiver::findCameraDevice(const QString &cameraId)
+-{
+-    const QList<QCameraDevice> videoInputs = QMediaDevices::videoInputs();
+-    for (const QCameraDevice &camera : videoInputs) {
+-        if (camera.description() == cameraId) {
+-            return camera;
+-        }
+-    }
+-
+-    return QCameraDevice();
+-}
+-
+-void UVCReceiver::checkPermission()
+-{
+-    const QCameraPermission cameraPermission;
+-    if (qApp->checkPermission(cameraPermission) == Qt::PermissionStatus::Undetermined) {
+-        qApp->requestPermission(cameraPermission, qgcApp(), [](const QPermission &permission) {
+-            if (permission.status() != Qt::PermissionStatus::Granted) {
+-                qgcApp()->showAppMessage(QStringLiteral("Failed to get camera permission"));
+-            }
+-        });
+-    }
+-}
+-
+-QString UVCReceiver::getSourceId()
+-{
+-    const QString videoSource = SettingsManager::instance()->videoSettings()->videoSource()->rawValue().toString();
+-    const QCameraDevice cameraDevice = findCameraDevice(videoSource);
+-    if (cameraDevice.isNull()) {
+-        return QString();
+-    }
+-
+-    const QString videoSourceID = cameraDevice.description();
+-    qCDebug(UVCReceiverLog) << "Found USB source:" << videoSourceID << "Name:" << videoSource;
+-    return videoSourceID;
+-}
+-
+-bool UVCReceiver::deviceExists(const QString &device)
+-{
+-    return !findCameraDevice(device).isNull();
+-}
+-
+-QStringList UVCReceiver::getDeviceNameList()
+-{
+-    QStringList deviceNameList;
+-
+-    const QList<QCameraDevice> videoInputs = QMediaDevices::videoInputs();
+-    for (const QCameraDevice &cameraDevice : videoInputs) {
+-        deviceNameList.append(cameraDevice.description());
+-    }
+-
+-    return deviceNameList;
+-}
+diff --git a/src/VideoManager/VideoReceiver/QtMultimedia/UVCReceiver.h b/src/VideoManager/VideoReceiver/QtMultimedia/UVCReceiver.h
+deleted file mode 100644
+index f47438526874756fce24ad5954c9d8bec254220a..0000000000000000000000000000000000000000
+--- a/src/VideoManager/VideoReceiver/QtMultimedia/UVCReceiver.h
++++ /dev/null
+@@ -1,45 +0,0 @@
+-/****************************************************************************
+- *
+- * (c) 2009-2024 QGROUNDCONTROL PROJECT <http://www.qgroundcontrol.org>
+- *
+- * QGroundControl is licensed according to the terms in the file
+- * COPYING.md in the root of the source code directory.
+- *
+- ****************************************************************************/
+-
+-#pragma once
+-
+-#include <QtMultimedia/QCameraDevice>
+-
+-#include "QtMultimediaReceiver.h"
+-
+-Q_DECLARE_LOGGING_CATEGORY(UVCReceiverLog)
+-
+-class QCamera;
+-class QImageCapture;
+-class QQuickItem;
+-class QMediaDevices;
+-
+-class UVCReceiver : public QtMultimediaReceiver
+-{
+-    Q_OBJECT
+-
+-public:
+-    explicit UVCReceiver(QObject *parent = nullptr);
+-    ~UVCReceiver();
+-
+-    static bool enabled();
+-    static QCameraDevice findCameraDevice(const QString &cameraId);
+-    static void checkPermission();
+-    static QString getSourceId();
+-    static bool deviceExists(const QString &device);
+-    static QStringList getDeviceNameList();
+-
+-public slots:
+-    Q_INVOKABLE void adjustAspectRatio();
+-
+-private:
+-    QCamera *_camera = nullptr;
+-    QImageCapture *_imageCapture = nullptr;
+-    QMediaDevices *_mediaDevices = nullptr;
+-};
+ 
+EOF
+)

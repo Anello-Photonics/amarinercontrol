@@ -10,6 +10,6 @@
 import QtQuick
 import QtQuick.Controls
 
-FlightDisplayViewGStreamer {
+FlightDisplayViewDummy {
     id: videoBackground
 }

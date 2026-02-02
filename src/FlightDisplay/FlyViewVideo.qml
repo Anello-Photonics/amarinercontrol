@@ -53,19 +53,12 @@ Item {
         onTriggered:  QGroundControl.videoManager.startVideo()
     }
 
-    //-- Video Streaming
+    //-- Video View (video disabled)
     FlightDisplayViewVideo {
         id:             videoStreaming
         anchors.fill:   parent
         useSmallFont:   _root.pipState.state !== _root.pipState.fullState
-        visible:        QGroundControl.videoManager.isStreamSource
-    }
-    //-- UVC Video (USB Camera or Video Device)
-    Loader {
-        id:             cameraLoader
-        anchors.fill:   parent
-        visible:        QGroundControl.videoManager.isUvc
-        source:         QGroundControl.videoManager.uvcEnabled ? "qrc:/qml/QGroundControl/FlightDisplay/FlightDisplayViewUVC.qml" : "qrc:/qml/QGroundControl/FlightDisplay//FlightDisplayViewDummy.qml"
+        visible:        true
     }
 
     QGCLabel {

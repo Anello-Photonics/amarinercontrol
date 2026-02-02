@@ -73,8 +73,6 @@ target_link_libraries(${CMAKE_PROJECT_NAME}
         Qt6::Gui
         Qt6::Location
         Qt6::LocationPrivate
-        Qt6::Multimedia
-        Qt6::MultimediaQuickPrivate
         Qt6::Network
         Qt6::Positioning
         Qt6::PositioningPrivate

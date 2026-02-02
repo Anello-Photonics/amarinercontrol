@@ -14,18 +14,6 @@ QGC_LOGGING_CATEGORY(AndroidInitLog, "qgc.android.androidinit");
 static jobject _context = nullptr;
 static jobject _class_loader = nullptr;
 
-#ifdef QGC_GST_STREAMING
-extern "C"
-{
-    extern void gst_amc_jni_set_java_vm(JavaVM *java_vm);
-
-    jobject gst_android_get_application_class_loader(void)
-    {
-        return _class_loader;
-    }
-}
-#endif
-
 static jboolean jniInit(JNIEnv *env, jobject context)
 {
     qCDebug(AndroidInitLog) << Q_FUNC_INFO;
@@ -97,10 +85,6 @@ jint JNI_OnLoad(JavaVM *vm, void *reserved)
     if (jniSetNativeMethods() != JNI_OK) {
         return JNI_ERR;
     }
-
-    #ifdef QGC_GST_STREAMING
-        gst_amc_jni_set_java_vm(vm);
-    #endif
 
     AndroidInterface::setNativeMethods();
 
