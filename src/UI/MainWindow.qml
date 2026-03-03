@@ -137,12 +137,20 @@ ApplicationWindow {
 
     function showVehicleConfig() {
         //showTool(qsTr("Vehicle Configuration"), "qrc:/qml/QGroundControl/VehicleSetup/SetupView.qml", "/qmlimages/Gears.svg")
+        if (!_parameterMenuAvailable) {
+            return
+        }
         showTool(qsTr("Parameters"), "qrc:/qml/QGroundControl/VehicleSetup/SetupParameterEditor.qml", "/qmlimages/Gears.svg")
     }
 
     function showVehicleConfigParametersPage() {
+        if (!_parameterMenuAvailable) {
+            return
+        }
         showVehicleConfig()
-        toolDrawerLoader.item.showParametersPanel()
+        if (toolDrawerLoader.item) {
+            toolDrawerLoader.item.showParametersPanel()
+        }
     }
 
     function showKnownVehicleComponentConfigPage(knownVehicleComponent) {
@@ -180,6 +188,11 @@ ApplicationWindow {
     }
 
     property bool _forceClose: false
+    readonly property bool _deviceConnected: QGroundControl.multiVehicleManager.activeVehicle &&
+                                              QGroundControl.multiVehicleManager.activeVehicle !== QGroundControl.multiVehicleManager.offlineEditingVehicle &&
+                                              !QGroundControl.multiVehicleManager.activeVehicle.vehicleLinkManager.communicationLost
+    readonly property bool _parameterMenuAvailable: _deviceConnected &&
+                                                     QGroundControl.multiVehicleManager.parameterReadyVehicleAvailable
 
     function finishCloseProcess() {
         _forceClose = true
@@ -368,6 +381,7 @@ ApplicationWindow {
                             Layout.fillWidth:   true
                             text:               qsTr("Parameters")
                             imageResource:      "/qmlimages/Gears.svg"
+                            enabled:            _parameterMenuAvailable
                             onClicked: {
                                 if (mainWindow.allowViewSwitch()) {
                                     mainWindow.closeIndicatorDrawer()

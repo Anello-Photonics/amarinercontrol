@@ -210,7 +210,7 @@ GPSBaseStationSupport *GPSProvider::_connectGPS()
 {
     GPSBaseStationSupport *gpsDriver = nullptr;
     uint32_t baudrate = 0;
-    GPSDriverUBX::Settings settings{};
+    //GPSDriverUBX::Settings settings{};
     switch(_type) {
     case GPSType::trimble:
         gpsDriver = new GPSDriverAshtech(&_callbackEntry, this, &_sensorGps, &_satelliteInfo);
@@ -221,7 +221,7 @@ GPSBaseStationSupport *GPSProvider::_connectGPS()
         baudrate = 0;
         break;
     case GPSType::u_blox:
-        gpsDriver = new GPSDriverUBX(GPSDriverUBX::Interface::UART, &_callbackEntry, this, &_sensorGps, &_satelliteInfo, settings);
+        gpsDriver = new GPSDriverUBX(GPSDriverUBX::Interface::UART, &_callbackEntry, this, &_sensorGps, &_satelliteInfo);
         baudrate = 0;
         break;
     case GPSType::femto:

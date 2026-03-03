@@ -38,7 +38,11 @@ Rectangle {
 
     property bool   _vehicleArmed:                  QGroundControl.multiVehicleManager.activeVehicle ? QGroundControl.multiVehicleManager.activeVehicle.armed : false
     property string _messagePanelText:              qsTr("missing message panel text")
-    property bool   _fullParameterVehicleAvailable: QGroundControl.multiVehicleManager.parameterReadyVehicleAvailable && !QGroundControl.multiVehicleManager.activeVehicle.parameterManager.missingParameters
+    property bool   _deviceConnected:              QGroundControl.multiVehicleManager.activeVehicle &&
+                                                    QGroundControl.multiVehicleManager.activeVehicle !== QGroundControl.multiVehicleManager.offlineEditingVehicle &&
+                                                    !QGroundControl.multiVehicleManager.activeVehicle.vehicleLinkManager.communicationLost
+    property bool   _parametersMenuAvailable:       _deviceConnected && QGroundControl.multiVehicleManager.parameterReadyVehicleAvailable
+    property bool   _fullParameterVehicleAvailable: _parametersMenuAvailable && !QGroundControl.multiVehicleManager.activeVehicle.parameterManager.missingParameters
     property var    _corePlugin:                    QGroundControl.corePlugin
 
     function showSummaryPanel() {
@@ -91,7 +95,7 @@ Rectangle {
     }
 
     function showParametersPanel() {
-        if (mainWindow.allowViewSwitch()) {
+        if (_parametersMenuAvailable && mainWindow.allowViewSwitch()) {
             parametersButton.checked = true
             panelLoader.setSource("qrc:/qml/QGroundControl/VehicleSetup/SetupParameterEditor.qml")
         }
@@ -261,13 +265,13 @@ Rectangle {
 
             ConfigButton {
                 id:                 parametersButton
-                visible:            QGroundControl.multiVehicleManager.parameterReadyVehicleAvailable &&
+                visible:            _parametersMenuAvailable &&
                                     !QGroundControl.multiVehicleManager.activeVehicle.usingHighLatencyLink &&
                                     _corePlugin.showAdvancedUI
                 text:               qsTr("Parameters")
                 Layout.fillWidth:   true
                 icon.source:        "/qmlimages/subMenuButtonImage.png"
-                onClicked:          showPanel(this, "qrc:/qml/QGroundControl/VehicleSetup/SetupParameterEditor.qml")
+                onClicked:          showParametersPanel()
             }
 
             ConfigButton {
