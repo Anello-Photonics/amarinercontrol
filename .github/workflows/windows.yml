@@ -27,8 +27,13 @@ jobs:
           cache: true
 
       - name: Install NSIS
+        uses: repolevedavaj/install-nsis@v1
+        with:
+          nsis-version: latest
+
+      - name: Verify NSIS
         shell: pwsh
-        run: choco install nsis -y
+        run: makensis -VERSION
 
       - name: Configure CMake
         shell: pwsh
@@ -44,12 +49,9 @@ jobs:
       - name: Package installer
         shell: pwsh
         run: .\scripts\build_windows_installer.ps1
-        env:
-          QT_ROOT_DIR: ${{ env.Qt6_DIR }}
 
       - name: Upload installer
         uses: actions/upload-artifact@v4
         with:
           name: AMarinerControl-Setup
-          path: |
-            dist\*.exe
+          path: dist\*.exe
