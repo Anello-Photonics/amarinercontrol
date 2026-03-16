@@ -23,7 +23,7 @@ jobs:
           host: 'windows'
           target: 'desktop'
           arch: 'win64_msvc2022_64'
-          modules: 'qtcharts qtquick3d qt5compat qtlocation qtpositioning qtsensors qtspeech qtmultimedia'
+          modules: 'qtcharts qtquick3d qt5compat qtlocation qtpositioning qtsensors qtspeech qtmultimedia qtshadertools qtserialport qtconnectivity'
           cache: true
 
       - name: Install NSIS with Scoop
