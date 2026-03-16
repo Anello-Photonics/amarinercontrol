@@ -1,91 +1,137 @@
 ;--------------------------------
-; General Installer Settings
+; AMarinerControl NSIS Installer
 ;--------------------------------
 
-!define MUI_ICON "ANELLO.ico"
-!define MUI_UNICON "ANELLO.ico"
-!include "MUI2.nsh"
+Unicode True
 
 !include "MUI2.nsh"
 !include "x64.nsh"
+!include "FileFunc.nsh"
 
-Name "AMarinerControl"
-OutFile "AMarinerControl-Setup.exe"
+!define APP_NAME "AMarinerControl"
+!define APP_PUBLISHER "ANELLO Photonics"
+!define APP_EXE "AMarinerControl.exe"
+!define APP_ICON "ANELLO.ico"
+!define APP_VERSION "1.0.0"
 
+!ifndef APPDIR
+  !error "APPDIR not defined. Run makensis with /DAPPDIR=<path-to-release-folder>"
+!endif
 
-; Use 64-bit Program Files since your build is MSVC2022_64bit
-InstallDir "$PROGRAMFILES64\AMarinerControl"
-InstallDirRegKey HKLM "Software\AMarinerControl" "InstallDir"
+!ifndef OUTDIR
+  !define OUTDIR "."
+!endif
+
+Name "${APP_NAME}"
+OutFile "${OUTDIR}\AMarinerControl-Setup.exe"
+
+InstallDir "$PROGRAMFILES64\${APP_NAME}"
+InstallDirRegKey HKLM "Software\${APP_NAME}" "InstallDir"
 
 RequestExecutionLevel admin
 
+!define MUI_ICON "${APP_ICON}"
+!define MUI_UNICON "${APP_ICON}"
 
 ;--------------------------------
 ; Modern UI Pages
 ;--------------------------------
+
+!insertmacro MUI_PAGE_WELCOME
 !insertmacro MUI_PAGE_DIRECTORY
 !insertmacro MUI_PAGE_INSTFILES
+!insertmacro MUI_PAGE_FINISH
+
 !insertmacro MUI_UNPAGE_CONFIRM
 !insertmacro MUI_UNPAGE_INSTFILES
+!insertmacro MUI_UNPAGE_FINISH
+
 !insertmacro MUI_LANGUAGE "English"
 
 ;--------------------------------
 ; Variables
 ;--------------------------------
-Var StartMenuFolder
+
+Var EstimatedSize
+
+;--------------------------------
+; Helper Function
+;--------------------------------
+
+Function .onInit
+  SetShellVarContext all
+FunctionEnd
+
+Function un.onInit
+  SetShellVarContext all
+FunctionEnd
 
 ;--------------------------------
 ; Installation Section
 ;--------------------------------
+
 Section "Install" SEC01
 
     SetOutPath "$INSTDIR"
 
-    ; Copy EVERYTHING from your deployed Release folder
-    ; (Make sure you've already run windeployqt here)
-    File /r "C:\Users\K Ryan\AMC\build\Desktop_Qt_6_8_3_MSVC2022_64bit-Release\Release\*"
+    ; Remove old shortcuts first in case of upgrade/reinstall
+    Delete "$DESKTOP\${APP_NAME}.lnk"
+    Delete "$SMPROGRAMS\${APP_NAME}\${APP_NAME}.lnk"
+    Delete "$SMPROGRAMS\${APP_NAME}\Uninstall.lnk"
+    RMDir  "$SMPROGRAMS\${APP_NAME}"
 
-    ; Copy icon into installation directory
-    File "ANELLO.ico"
+    ; Copy deployed application contents from APPDIR
+    File /r "${APPDIR}\*"
 
-    ; Shortcuts
-    CreateShortcut "$DESKTOP\AMarinerControl.lnk" "$INSTDIR\AMarinerControl.exe" "" "$INSTDIR\ANELLO.ico"
-
-    CreateDirectory "$SMPROGRAMS\AMarinerControl"
-    CreateShortcut "$SMPROGRAMS\AMarinerControl\AMarinerControl.lnk" "$INSTDIR\AMarinerControl.exe" "" "$INSTDIR\ANELLO.ico"
-    CreateShortcut "$SMPROGRAMS\AMarinerControl\Uninstall.lnk" "$INSTDIR\Uninstall.exe" "" "$INSTDIR\ANELLO.ico"
+    ; Ensure installer icon is also present in install directory
+    File "${APP_ICON}"
 
     ; Write uninstaller
     WriteUninstaller "$INSTDIR\Uninstall.exe"
 
+    ; Shortcuts
+    CreateShortcut "$DESKTOP\${APP_NAME}.lnk" "$INSTDIR\${APP_EXE}" "" "$INSTDIR\${APP_ICON}"
+    CreateDirectory "$SMPROGRAMS\${APP_NAME}"
+    CreateShortcut "$SMPROGRAMS\${APP_NAME}\${APP_NAME}.lnk" "$INSTDIR\${APP_EXE}" "" "$INSTDIR\${APP_ICON}"
+    CreateShortcut "$SMPROGRAMS\${APP_NAME}\Uninstall.lnk" "$INSTDIR\Uninstall.exe" "" "$INSTDIR\${APP_ICON}"
+
+    ; Main app registry key
+    WriteRegStr HKLM "Software\${APP_NAME}" "InstallDir" "$INSTDIR"
+
     ; Add/Remove Programs registration
-    WriteRegStr HKLM "Software\AMarinerControl" "InstallDir" "$INSTDIR"
-    WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\AMarinerControl" "DisplayName" "AMarinerControl"
-    WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\AMarinerControl" "UninstallString" "$\"$INSTDIR\Uninstall.exe$\""
-    WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\AMarinerControl" "DisplayIcon" "$\"$INSTDIR\ANELLO.ico$\""
-    WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\AMarinerControl" "InstallLocation" "$\"$INSTDIR$\""
-    WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\AMarinerControl" "NoModify" 1
-    WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\AMarinerControl" "NoRepair" 1
+    WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_NAME}" "DisplayName" "${APP_NAME}"
+    WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_NAME}" "DisplayVersion" "${APP_VERSION}"
+    WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_NAME}" "Publisher" "${APP_PUBLISHER}"
+    WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_NAME}" "InstallLocation" "$INSTDIR"
+    WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_NAME}" "DisplayIcon" "$INSTDIR\${APP_ICON}"
+    WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_NAME}" "UninstallString" "$\"$INSTDIR\Uninstall.exe$\""
+    WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_NAME}" "NoModify" 1
+    WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_NAME}" "NoRepair" 1
+
+    ; Estimated installed size in KB for Add/Remove Programs
+    ${GetSize} "$INSTDIR" "/S=0K" $EstimatedSize $0 $1
+    IntFmt $EstimatedSize "0x%08X" $EstimatedSize
+    WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_NAME}" "EstimatedSize" "$EstimatedSize"
 
 SectionEnd
 
 ;--------------------------------
 ; Uninstaller Section
 ;--------------------------------
+
 Section "Uninstall"
 
     ; Remove shortcuts
-    Delete "$DESKTOP\AMarinerControl.lnk"
-
-    Delete "$SMPROGRAMS\AMarinerControl\AMarinerControl.lnk"
-    Delete "$SMPROGRAMS\AMarinerControl\Uninstall.lnk"
-    RMDir  "$SMPROGRAMS\AMarinerControl"
+    Delete "$DESKTOP\${APP_NAME}.lnk"
+    Delete "$SMPROGRAMS\${APP_NAME}\${APP_NAME}.lnk"
+    Delete "$SMPROGRAMS\${APP_NAME}\Uninstall.lnk"
+    RMDir  "$SMPROGRAMS\${APP_NAME}"
 
     ; Remove installed files
     RMDir /r "$INSTDIR"
 
     ; Remove registry entries
-    DeleteRegKey HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\AMarinerControl"
-    DeleteRegKey HKLM "Software\AMarinerControl"
+    DeleteRegKey HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_NAME}"
+    DeleteRegKey HKLM "Software\${APP_NAME}"
 
 SectionEnd
