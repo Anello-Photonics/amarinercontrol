@@ -23,7 +23,7 @@ jobs:
           host: 'windows'
           target: 'desktop'
           arch: 'win64_msvc2022_64'
-          modules: 'qtcharts qtquick3d'
+          modules: 'qtcharts qtquick3d qt5compat'
           cache: true
 
       - name: Install NSIS
