@@ -26,8 +26,15 @@ jobs:
           modules: 'qtcharts qtquick3d qt5compat'
           cache: true
 
-      - name: Install NSIS
-        uses: negrutiu/install-nsis-compiler@v1
+      - name: Install NSIS with Scoop
+        shell: pwsh
+        run: |
+          Set-ExecutionPolicy Bypass -Scope Process -Force
+          iwr -useb get.scoop.sh -outfile install.ps1
+          .\install.ps1 -RunAsAdmin
+          scoop update
+          scoop bucket add extras
+          scoop install nsis
 
       - name: Verify NSIS
         shell: pwsh
