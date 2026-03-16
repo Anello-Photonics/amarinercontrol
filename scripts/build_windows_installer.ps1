@@ -1,26 +1,29 @@
 $ErrorActionPreference = "Stop"
 
-$repoRoot   = (Resolve-Path ".").Path
+$repoRoot   = (Resolve-Path "$PSScriptRoot\..").Path
 $buildDir   = Join-Path $repoRoot "build"
 $releaseDir = Join-Path $buildDir "Release"
 $distDir    = Join-Path $repoRoot "dist"
 $nsiScript  = Join-Path $repoRoot "deploy\windows\AMC_Installer.nsi"
 
-# Resolve Qt root from install-qt-action env
-if (-not $env:Qt6_DIR) {
-    throw "Qt6_DIR environment variable not found."
+# Resolve Qt root from environment
+if ($env:QT_ROOT_DIR) {
+    $qtRoot = $env:QT_ROOT_DIR
+}
+elseif ($env:Qt6_DIR) {
+    $qtCmakeDir = $env:Qt6_DIR
+    $qtRoot = (Resolve-Path (Join-Path $qtCmakeDir "..\..\..")).Path
+}
+else {
+    throw "Neither QT_ROOT_DIR nor Qt6_DIR environment variable was found."
 }
 
-# Qt6_DIR usually points to something like ...\msvc2022_64\lib\cmake\Qt6
-$qtCmakeDir = $env:Qt6_DIR
-$qtRoot = Resolve-Path (Join-Path $qtCmakeDir "..\..\..")
-$qtRoot = $qtRoot.Path
-$qtBin  = Join-Path $qtRoot "bin"
+$qtBin   = Join-Path $qtRoot "bin"
 $qmlRoot = Join-Path $qtRoot "qml"
 
 $exe = Join-Path $releaseDir "AMarinerControl.exe"
 $windeployqt = Join-Path $qtBin "windeployqt.exe"
-$makensis = "C:\Program Files (x86)\NSIS\makensis.exe"
+$makensis = "makensis"
 
 if (!(Test-Path $exe)) {
     throw "Executable not found: $exe"
@@ -28,8 +31,8 @@ if (!(Test-Path $exe)) {
 if (!(Test-Path $windeployqt)) {
     throw "windeployqt not found: $windeployqt"
 }
-if (!(Test-Path $makensis)) {
-    throw "makensis not found: $makensis"
+if (!(Get-Command $makensis -ErrorAction SilentlyContinue)) {
+    throw "makensis not found on PATH"
 }
 if (!(Test-Path $nsiScript)) {
     throw "NSIS script not found: $nsiScript"
