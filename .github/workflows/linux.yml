@@ -12,7 +12,7 @@ on:
       - 'docs/**'
   pull_request:
     paths:
-      - '.github/workflows/appimage.yml'
+      - '.github/workflows/linux.yml'
       - '.github/actions/**'
       - 'CMakeLists.txt'
       - 'cmake/**'
