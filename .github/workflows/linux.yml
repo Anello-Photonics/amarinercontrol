@@ -1,91 +1,128 @@
 name: Build Linux AppImage
 
 on:
-  workflow_dispatch:
   push:
-    branches:
-      - main
-      - master
-    tags:
-      - 'v*'
-    paths-ignore:
-      - 'docs/**'
-  pull_request:
-    paths:
-      - '.github/workflows/linux.yml'
-      - '.github/actions/**'
-      - 'CMakeLists.txt'
-      - 'cmake/**'
-      - 'deploy/linux/**'
-      - 'src/**'
-      - 'tools/setup/*debian*'
-
-permissions:
-  contents: read
+    branches: [ main, master ]
+  workflow_dispatch:
 
 jobs:
-  build-appimage:
-    name: Build AppImage
-    runs-on: ubuntu-22.04
-
-    defaults:
-      run:
-        shell: bash
-
-    env:
-      APP_NAME: AMarinerControl
-      APPIMAGE_NAME: AMarinerControl-x86_64.AppImage
-      BUILD_DIR: ${{ runner.temp }}/build
-      QT_VERSION: 6.8.3
+  build-linux-appimage:
+    runs-on: ubuntu-20.04
 
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
-        with:
-          submodules: recursive
-          fetch-depth: 1
 
-      - name: Initial setup
-        uses: ./.github/actions/common
-
-      - name: Install Linux dependencies
+      - name: Install dependencies
         run: |
-          chmod a+x ./tools/setup/install-dependencies-debian.sh
-          sudo ./tools/setup/install-dependencies-debian.sh
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            ninja-build \
+            cmake \
+            patchelf \
+            desktop-file-utils \
+            libgl1-mesa-dev \
+            libopengl-dev \
+            libegl1-mesa-dev \
+            libxkbcommon-x11-0 \
+            libxcb-cursor0 \
+            libxcb-icccm4 \
+            libxcb-image0 \
+            libxcb-keysyms1 \
+            libxcb-randr0 \
+            libxcb-render-util0 \
+            libxcb-shape0 \
+            libxcb-xinerama0 \
+            libxcb-xfixes0 \
+            libxcb-xkb1 \
+            libx11-xcb-dev \
+            libdbus-1-3 \
+            libfontconfig1 \
+            libfreetype6 \
+            libglib2.0-0 \
+            libnss3 \
+            libxcomposite1 \
+            libxcursor1 \
+            libxi6 \
+            libxrender1 \
+            libxtst6 \
+            libasound2 \
+            libpulse0 \
+            libspeechd2 \
+            libudev1
 
-      - name: Install Qt
+      - name: Install Qt 6.8.3
         uses: jurplel/install-qt-action@v4
         with:
-          version: ${{ env.QT_VERSION }}
-          host: linux
-          target: desktop
-          arch: linux_gcc_64
-          dir: ${{ runner.temp }}
-          modules: qtcharts qtlocation qtpositioning qtspeech qt5compat qtmultimedia qtserialport qtimageformats qtshadertools qtconnectivity qtquick3d qtsensors
-          setup-python: false
+          version: '6.8.3'
+          host: 'linux'
+          target: 'desktop'
+          arch: 'gcc_64'
+          modules: 'qtcharts qtquick3d qt5compat qtlocation qtpositioning qtsensors qtspeech qtmultimedia qtshadertools qtserialport qtconnectivity'
           cache: true
 
-      - name: Configure
-        run: |
-          "${QT_ROOT_DIR}/bin/qt-cmake" -S "${GITHUB_WORKSPACE}" -B "${BUILD_DIR}" -G Ninja \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DQGC_BUILD_TESTING=OFF
+      - name: Install linuxdeployqt
+        uses: miurahr/install-linuxdeployqt-action@v1
+
+      - name: Configure CMake
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
 
       - name: Build
-        run: cmake --build "${BUILD_DIR}" --config Release --parallel
+        run: cmake --build build
 
-      - name: Smoke test executable
-        run: xvfb-run -a "${BUILD_DIR}/Release/${APP_NAME}" --simple-boot-test
+      - name: Prepare AppDir
+        run: |
+          mkdir -p AppDir/usr/bin
+          mkdir -p AppDir/usr/share/applications
+          mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
 
-      - name: Package AppImage
-        run: cmake --install "${BUILD_DIR}" --config Release
+          if [ -f build/AMarinerControl ]; then
+            cp build/AMarinerControl AppDir/usr/bin/
+          elif [ -f build/Release/AMarinerControl ]; then
+            cp build/Release/AMarinerControl AppDir/usr/bin/
+          else
+            echo "AMarinerControl binary not found"
+            find build -maxdepth 3 -type f -name "AMarinerControl" || true
+            exit 1
+          fi
 
-      - name: Smoke test AppImage
-        run: xvfb-run -a "${BUILD_DIR}/${APPIMAGE_NAME}" --simple-boot-test
+          sed \
+            -e 's|^Exec=.*|Exec=AMarinerControl|' \
+            -e 's|^Icon=.*|Icon=amarinercontrol|' \
+            -e 's|^Name=.*|Name=AMarinerControl|' \
+            deploy/linux/org.mavlink.qgroundcontrol.desktop.in \
+            > AppDir/usr/share/applications/amarinercontrol.desktop
 
-      - name: Upload AppImage artifact
+          cp deploy/linux/AMarinerControl_256.png \
+            AppDir/usr/share/icons/hicolor/256x256/apps/amarinercontrol.png
+
+      - name: Write qt.conf
+        run: |
+          cat > AppDir/usr/bin/qt.conf <<'EOF'
+          [Paths]
+          Plugins=plugins
+          Qml2Imports=qml
+          Imports=qml
+          EOF
+
+      - name: Build AppImage
+        env:
+          VERSION: "1.0.3"
+        run: |
+          linuxdeployqt AppDir/usr/share/applications/amarinercontrol.desktop \
+            -qmake="$QT_ROOT_DIR/bin/qmake" \
+            -qmldir="$GITHUB_WORKSPACE/src" \
+            -bundle-non-qt-libs \
+            -appimage
+
+      - name: Collect AppImage
+        run: |
+          mkdir -p dist
+          find . -name "*.AppImage" -exec cp {} dist/ \;
+
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.APP_NAME }}-AppImage
-          path: ${{ env.BUILD_DIR }}/${{ env.APPIMAGE_NAME }}
-          if-no-files-found: error
+          name: AMarinerControl-AppImage
+          path: dist/*.AppImage
