@@ -63,7 +63,7 @@ jobs:
           cache: true
 
       - name: Install linuxdeployqt
-        uses: miurahr/install-linuxdeployqt-action@v1
+        uses: miurahr/install-linuxdeployqt-action@v1.0.1
 
       - name: Configure CMake
         run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
