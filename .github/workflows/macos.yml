@@ -1,140 +1,64 @@
-name: MacOS
+name: Build macOS DMG
 
 on:
   push:
-    branches:
-      - MacOS-workflow
-      - 'Stable*'
-    tags:
-      - 'v*'
-    paths-ignore:
-      - 'docs/**'
-  pull_request:
-    paths:
-      - '.github/workflows/macos.yml'
-      - 'deploy/macos/**'
-      - 'src/**'
-      - 'CMakeLists.txt'
-      - 'cmake/**'
+    branches: [ main, master ]
+  workflow_dispatch:
 
 jobs:
-  build:
+  build-macos-dmg:
     runs-on: macos-latest
 
-    strategy:
-      matrix:
-        BuildType: [Release]
-
-    defaults:
-      run:
-        shell: bash
-
-    env:
-      QT_VERSION: 6.8.3
-      APP_NAME: AMarinerControl
-
     steps:
-      - name: Checkout repo
+      - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Install Qt 6.8.3
+        uses: jurplel/install-qt-action@v4
         with:
-          submodules: recursive
-          fetch-depth: 1
-          fetch-tags: true
+          version: '6.8.3'
+          host: 'mac'
+          target: 'desktop'
+          arch: 'clang_64'
+          modules: 'qtcharts qtquick3d qt5compat qtlocation qtpositioning qtsensors qtspeech qtmultimedia qtshadertools qtserialport qtconnectivity'
+          cache: true
 
-      - name: Install Dependencies (include GStreamer)
-        run: |
-          brew update
-          brew install gstreamer gst-plugins-base gst-plugins-good cmake ninja create-dmg
-
-      - name: Set up Python (for aqtinstall)
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Install Qt using aqtinstall
-        run: |
-          python3 -m pip install --upgrade pip
-          pip install aqtinstall==3.3.*
-          python3 -m aqt install-qt mac desktop ${{ env.QT_VERSION }} clang_64 \
-            --modules qtquick3d qtmultimedia \
-                      qtshadertools qtcharts qtlocation qtpositioning qtspeech \
-                      qtserialport qtimageformats qtconnectivity qtsensors qt5compat \
-            --outputdir $HOME/Qt
+      - name: Configure CMake
         shell: bash
-
-      - name: Set Qt environment
         run: |
-          echo "QT_DIR=$HOME/Qt/$QT_VERSION/clang_64" >> $GITHUB_ENV
-          echo "PATH=$QT_DIR/bin:$PATH" >> $GITHUB_ENV
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build Release
         shell: bash
-
-      - name: Build app with CMake
         run: |
-          rm -rf build        # Remove old cache/build files
-          mkdir -p build
-          cd build
-          cmake .. -DCMAKE_PREFIX_PATH=$QT_DIR
-          cmake --build . --config Release
+          cmake --build build --config Release
+
+      - name: Locate app bundle
+        id: app
         shell: bash
-
-      - name: Deploy .app with QML
         run: |
-          APP_BUNDLE="build/${APP_NAME}.app"
-        
-          # Use macdeployqt to copy Qt libraries and QML modules automatically
-          macdeployqt "$APP_BUNDLE" -qmldir=src
-        
-          # Manually copy your app's QML folders (UI, subfolders)
-          cp -r src/UI "$APP_BUNDLE/Contents/Resources/qml/"
-          cp -r src/SomeOtherQMLFolder "$APP_BUNDLE/Contents/Resources/qml/"
-        shell: bash
-
-      - name: Verify app bundle
-        run: |
-          ls -R build/${APP_NAME}.app/Contents/Resources/qml
-          
-      - name: Ensure QtQuick3D is bundled
-        run: |
-          QT_DIR="/Users/runner/hostedtoolcache/Qt/6.8.3/macos"
-          APP_QML_DIR="build/AMarinerControl.app/Contents/Resources/qml"
-          mkdir -p "$APP_QML_DIR"
-          cp -R "$QT_DIR/qml/QtQuick3D" "$APP_QML_DIR/" || true
-          cp -R "$QT_DIR/qml/QtQuick" "$APP_QML_DIR/" || true
-          cp -R "$QT_DIR/qml/QtQuick.Controls" "$APP_QML_DIR/" || true
-
-      # (Optional) Verify the frameworks and library links
-      - name: Verify Qt frameworks in app
-        working-directory: ${{ runner.temp }}/build/${{ matrix.BuildType }}
-        run: |
-          echo "Listing bundled frameworks:"
-          ls -la "${{ env.APP_NAME }}.app/Contents/Frameworks"
-          echo "Checking library dependencies:"
-          otool -L "${{ env.APP_NAME }}.app/Contents/MacOS/${{ env.APP_NAME }}"
-
-      - name: Package .app
-        working-directory: ${{ runner.temp }}/build/${{ matrix.BuildType }}
-        run: |
-          APP_PATH="${{ env.APP_NAME }}.app"
-          if [ ! -d "$APP_PATH" ]; then
-            echo "❌ App bundle not found!"
+          APP_PATH="$(find "$GITHUB_WORKSPACE/build" -maxdepth 3 -name "AMarinerControl.app" | head -n 1)"
+          if [ -z "$APP_PATH" ]; then
+            echo "AMarinerControl.app not found"
             exit 1
           fi
-          echo "✅ Found app at $APP_PATH"
+          echo "app_path=$APP_PATH" >> "$GITHUB_OUTPUT"
 
-      - name: Create DMG
-        working-directory: ${{ runner.temp }}/build/${{ matrix.BuildType }}
+      - name: Deploy Qt and create DMG
+        shell: bash
         run: |
-          create-dmg \
-            --volname "${{ env.APP_NAME }}" \
-            --window-size 500 300 \
-            --icon-size 100 \
-            --app-drop-link 250 150 \
-            "${{ env.APP_NAME }}-macOS.dmg" \
-            "${{ env.APP_NAME }}.app"
-          echo "✅ DMG created at $(pwd)/${{ env.APP_NAME }}-macOS.dmg"
+          "$QT_ROOT_DIR/bin/macdeployqt" "${{ steps.app.outputs.app_path }}" \
+            -qmldir="$GITHUB_WORKSPACE/src" \
+            -dmg
 
-      - name: Upload Build Artifact
+      - name: Collect DMG
+        shell: bash
+        run: |
+          mkdir -p dist
+          find "$GITHUB_WORKSPACE/build" -name "*.dmg" -exec cp {} dist/ \;
+
+      - name: Upload DMG artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.APP_NAME }}-macOS
-          path: ${{ runner.temp }}/build/${{ matrix.BuildType }}/${{ env.APP_NAME }}-macOS.dmg
+          name: AMarinerControl-macOS-DMG
+          path: dist/*.dmg
