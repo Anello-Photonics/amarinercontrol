@@ -47,7 +47,7 @@ jobs:
             libxi6 \
             libxrender1 \
             libxtst6 \
-            libasound2 \
+            libasound2t64 \
             libpulse0 \
             libspeechd2 \
             libudev1
