@@ -33,23 +33,38 @@ jobs:
         run: |
           cmake --build build --config Release
 
-      - name: Locate app bundle
-        id: app
+      - name: Locate app bundle and qml dirs
+        id: paths
         shell: bash
         run: |
-          APP_PATH="$(find "$GITHUB_WORKSPACE/build" -maxdepth 3 -name "AMarinerControl.app" | head -n 1)"
+          APP_PATH="$(find "$GITHUB_WORKSPACE/build" -maxdepth 5 -name "AMarinerControl.app" | head -n 1)"
           if [ -z "$APP_PATH" ]; then
             echo "AMarinerControl.app not found"
             exit 1
           fi
+
+          BUILD_QML_DIR="$(find "$GITHUB_WORKSPACE/build" -maxdepth 4 -type d -name qml | head -n 1 || true)"
+
           echo "app_path=$APP_PATH" >> "$GITHUB_OUTPUT"
+          echo "build_qml_dir=$BUILD_QML_DIR" >> "$GITHUB_OUTPUT"
 
       - name: Deploy Qt and create DMG
         shell: bash
         run: |
-          "$QT_ROOT_DIR/bin/macdeployqt" "${{ steps.app.outputs.app_path }}" \
-            -qmldir="$GITHUB_WORKSPACE/src" \
-            -dmg
+          CMD=(
+            "$QT_ROOT_DIR/bin/macdeployqt"
+            "${{ steps.paths.outputs.app_path }}"
+            "-qmldir=$GITHUB_WORKSPACE/src"
+            "-qmldir=$QT_ROOT_DIR/qml"
+            "-dmg"
+            "-verbose=2"
+          )
+
+          if [ -n "${{ steps.paths.outputs.build_qml_dir }}" ]; then
+            CMD+=("-qmldir=${{ steps.paths.outputs.build_qml_dir }}")
+          fi
+
+          "${CMD[@]}"
 
       - name: Collect DMG
         shell: bash
@@ -57,8 +72,21 @@ jobs:
           mkdir -p dist
           find "$GITHUB_WORKSPACE/build" -name "*.dmg" -exec cp {} dist/ \;
 
+      - name: Zip app bundle
+        shell: bash
+        run: |
+          mkdir -p dist
+          APP_PATH="${{ steps.paths.outputs.app_path }}"
+          ditto -c -k --sequesterRsrc --keepParent "$APP_PATH" dist/AMarinerControl.app.zip
+
       - name: Upload DMG artifact
         uses: actions/upload-artifact@v4
         with:
           name: AMarinerControl-macOS-DMG
           path: dist/*.dmg
+
+      - name: Upload app bundle artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: AMarinerControl-macOS-app
+          path: dist/AMarinerControl.app.zip
