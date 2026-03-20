@@ -55,8 +55,7 @@ jobs:
             $ALSA_PKG \
             libpulse0 \
             libspeechd2 \
-            libudev1 \
-            wget
+            libudev1
 
       - name: Install Qt 6.8.3
         uses: jurplel/install-qt-action@v4
@@ -70,74 +69,85 @@ jobs:
           pw: ${{ secrets.QT_PW }}
           cache: true
 
-      - name: Install linuxdeployqt
-        shell: bash
-        run: |
-          wget -q https://github.com/probonopd/linuxdeployqt/releases/download/continuous/linuxdeployqt-continuous-x86_64.AppImage
-          chmod +x linuxdeployqt-continuous-x86_64.AppImage
-
       - name: Configure CMake
-        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+        run: |
+          cmake -S . -B build/Desktop_Qt_6_8_3-Release -G Ninja -DCMAKE_BUILD_TYPE=Release
 
       - name: Build
-        run: cmake --build build
-
-      - name: Prepare AppDir
         run: |
-          mkdir -p AppDir/usr/bin
-          mkdir -p AppDir/usr/share/applications
-          mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
+          cmake --build build/Desktop_Qt_6_8_3-Release -j$(nproc)
 
-          if [ -f build/AMarinerControl ]; then
-            cp build/AMarinerControl AppDir/usr/bin/
-          elif [ -f build/Release/AMarinerControl ]; then
-            cp build/Release/AMarinerControl AppDir/usr/bin/
-          else
-            echo "AMarinerControl binary not found"
-            find build -maxdepth 3 -type f -name "AMarinerControl" || true
+      - name: Generate CPack package
+        run: |
+          cmake --build build/Desktop_Qt_6_8_3-Release --target package -j$(nproc)
+
+      - name: Locate AppDir
+        id: appdir
+        shell: bash
+        run: |
+          cd build/Desktop_Qt_6_8_3-Release
+          APPDIR="$(find _CPack_Packages/Linux/TGZ -maxdepth 2 -type d -name 'AMarinerControl-*-Linux' | head -n 1)"
+          if [ -z "$APPDIR" ]; then
+            echo "AppDir not found"
+            find _CPack_Packages -maxdepth 4 -type d || true
             exit 1
           fi
+          echo "appdir=$PWD/$APPDIR" >> "$GITHUB_OUTPUT"
 
-          sed \
-            -e 's|^Exec=.*|Exec=AMarinerControl|' \
-            -e 's|^Icon=.*|Icon=amarinercontrol|' \
-            -e 's|^Name=.*|Name=AMarinerControl|' \
-            deploy/linux/org.mavlink.qgroundcontrol.desktop.in \
-            > AppDir/usr/share/applications/amarinercontrol.desktop
-
-          cp deploy/linux/AMarinerControl_256.png \
-            AppDir/usr/share/icons/hicolor/256x256/apps/amarinercontrol.png
-
-      - name: Write qt.conf
+      - name: Create AppRun
+        shell: bash
         run: |
-          cat > AppDir/usr/bin/qt.conf <<'EOF'
-          [Paths]
-          Plugins=../plugins
-          Qml2Imports=../qml
-          Imports=../qml
+          APPDIR="${{ steps.appdir.outputs.appdir }}"
+          cat > "$APPDIR/AppRun" <<'EOF'
+          #!/bin/sh
+          HERE="$(dirname "$(readlink -f "$0")")"
+
+          export PATH="$HERE/bin:$PATH"
+          export LD_LIBRARY_PATH="$HERE/lib:${LD_LIBRARY_PATH:-}"
+          export QT_PLUGIN_PATH="$HERE/plugins:${QT_PLUGIN_PATH:-}"
+          export QML2_IMPORT_PATH="$HERE/qml:${QML2_IMPORT_PATH:-}"
+
+          exec "$HERE/bin/AMarinerControl" "$@"
           EOF
 
-      - name: Keep only SQLite SQL driver
+          chmod +x "$APPDIR/AppRun"
+
+      - name: Create desktop file
+        shell: bash
         run: |
-          find "$QT_ROOT_DIR/plugins/sqldrivers" -type f ! -name 'libqsqlite.so' -delete
+          APPDIR="${{ steps.appdir.outputs.appdir }}"
+          APP=AMarinerControl
+
+          cat > "$APPDIR/$APP.desktop" <<EOF
+          [Desktop Entry]
+          Type=Application
+          Name=$APP
+          Exec=$APP
+          Icon=$APP
+          Terminal=false
+          Categories=Utility;
+          EOF
+
+      - name: Add root icon
+        shell: bash
+        run: |
+          APPDIR="${{ steps.appdir.outputs.appdir }}"
+          APP=AMarinerControl
+
+          cp -f "$APPDIR/share/icons/hicolor/256x256/apps/$APP.png" "$APPDIR/$APP.png" 2>/dev/null || true
+          ln -sf "$APP.png" "$APPDIR/.DirIcon"
 
       - name: Build AppImage
-        env:
-          VERSION: "1.0.3"
+        shell: bash
         run: |
-          ./linuxdeployqt-continuous-x86_64.AppImage AppDir/usr/share/applications/amarinercontrol.desktop \
-            -qmake="$QT_ROOT_DIR/bin/qmake" \
-            -qmldir="$GITHUB_WORKSPACE/src" \
-            -bundle-non-qt-libs \
-            -appimage
-
-      - name: Collect AppImage
-        run: |
-          mkdir -p dist
-          find . -name "*.AppImage" -exec cp {} dist/ \;
+          cd build/Desktop_Qt_6_8_3-Release
+          APPDIR="$(find _CPack_Packages/Linux/TGZ -maxdepth 2 -type d -name 'AMarinerControl-*-Linux' | head -n 1)"
+          ARCH=x86_64 VERSION=1.0.3 \
+            _CPack_Packages/Linux/TGZ/tools/appimagetool-x86_64.AppImage \
+            "$APPDIR" "AMarinerControl-1.0.3-x86_64.AppImage"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: AMarinerControl-AppImage
-          path: dist/*.AppImage
+          path: build/Desktop_Qt_6_8_3-Release/*.AppImage
