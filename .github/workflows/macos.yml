@@ -7,7 +7,7 @@ on:
 
 jobs:
   build-macos-dmg:
-    runs-on: macos-latest
+    runs-on: macos-14
 
     steps:
       - name: Checkout
@@ -33,82 +33,114 @@ jobs:
         run: |
           cmake --build build --config Release
 
-      - name: Locate app bundle and qml dirs
-        id: paths
+      - name: Locate real app bundle
+        id: app
         shell: bash
         run: |
-          APP_PATH="$(find "$GITHUB_WORKSPACE/build" -maxdepth 6 -name "AMarinerControl.app" | head -n 1)"
-          if [ -z "$APP_PATH" ]; then
-            echo "AMarinerControl.app not found"
+          CANDIDATES=(
+            "$GITHUB_WORKSPACE/build/Qt_6_8_3_for_macOS-Release/Release/AMarinerControl.app"
+            "$GITHUB_WORKSPACE/build/Release/AMarinerControl.app"
+            "$GITHUB_WORKSPACE/build/AMarinerControl.app"
+          )
+
+          REAL_APP=""
+          for app in "${CANDIDATES[@]}"; do
+            if [ -f "$app/Contents/Info.plist" ] && [ -d "$app/Contents/MacOS" ]; then
+              REAL_APP="$app"
+              break
+            fi
+          done
+
+          if [ -z "$REAL_APP" ]; then
+            mapfile -t APPS < <(find "$GITHUB_WORKSPACE/build" -name "AMarinerControl.app" -type d | awk '{ print length, $0 }' | sort -n | cut -d" " -f2-)
+
+            echo "Fallback search results:"
+            printf '%s\n' "${APPS[@]}"
+
+            for app in "${APPS[@]}"; do
+              if [ -f "$app/Contents/Info.plist" ] && [ -d "$app/Contents/MacOS" ]; then
+                REAL_APP="$app"
+              fi
+            done
+          fi
+
+          if [ -z "$REAL_APP" ]; then
+            echo "No valid app bundle found"
             exit 1
           fi
 
-          BUILD_QML_DIR="$(find "$GITHUB_WORKSPACE/build" -maxdepth 5 -type d -name qml | head -n 1 || true)"
+          BUILD_QML_DIR=""
+          if [ -d "$GITHUB_WORKSPACE/build/Qt_6_8_3_for_macOS-Release/qml" ]; then
+            BUILD_QML_DIR="$GITHUB_WORKSPACE/build/Qt_6_8_3_for_macOS-Release/qml"
+          else
+            BUILD_QML_DIR="$(find "$GITHUB_WORKSPACE/build" -type d -name qml | head -n 1 || true)"
+          fi
 
-          echo "app_path=$APP_PATH" >> "$GITHUB_OUTPUT"
+          echo "Using app: $REAL_APP"
+          echo "Using build qml dir: $BUILD_QML_DIR"
+
+          echo "app_path=$REAL_APP" >> "$GITHUB_OUTPUT"
           echo "build_qml_dir=$BUILD_QML_DIR" >> "$GITHUB_OUTPUT"
 
-      - name: Inspect app bundle before deploy
+      - name: Stage app bundle
+        id: stage
         shell: bash
         run: |
-          APP_PATH="${{ steps.paths.outputs.app_path }}"
-          echo "App path: $APP_PATH"
-          ls -la "$APP_PATH"
-          ls -la "$APP_PATH/Contents" || true
-          ls -la "$APP_PATH/Contents/MacOS" || true
-          ls -la "$APP_PATH/Contents/Frameworks" || true
-          ls -la "$APP_PATH/Contents/PlugIns" || true
-          ls -la "$APP_PATH/Contents/Resources" || true
+          STAGE_DIR="$GITHUB_WORKSPACE/dist/macos"
+          mkdir -p "$STAGE_DIR"
+          rm -rf "$STAGE_DIR/AMarinerControl.app"
+          cp -R "${{ steps.app.outputs.app_path }}" "$STAGE_DIR/"
+          echo "stage_app=$STAGE_DIR/AMarinerControl.app" >> "$GITHUB_OUTPUT"
 
-      - name: Fail if bundle is incomplete before deploy
+      - name: Inspect staged app before deploy
         shell: bash
         run: |
-          APP_PATH="${{ steps.paths.outputs.app_path }}"
-          test -f "$APP_PATH/Contents/Info.plist"
-          test -d "$APP_PATH/Contents/MacOS"
+          APP="${{ steps.stage.outputs.stage_app }}"
+          ls -la "$APP/Contents"
+          ls -la "$APP/Contents/MacOS"
+          cat "$APP/Contents/Info.plist" >/dev/null
 
       - name: Deploy Qt and create DMG
         shell: bash
         run: |
-          APP_PATH="${{ steps.paths.outputs.app_path }}"
+          APP="${{ steps.stage.outputs.stage_app }}"
 
           CMD=(
             "$QT_ROOT_DIR/bin/macdeployqt"
-            "$APP_PATH"
+            "$APP"
             "-qmldir=$GITHUB_WORKSPACE/src"
             "-qmldir=$QT_ROOT_DIR/qml"
             "-dmg"
             "-verbose=2"
           )
 
-          if [ -n "${{ steps.paths.outputs.build_qml_dir }}" ]; then
-            CMD+=("-qmldir=${{ steps.paths.outputs.build_qml_dir }}")
+          if [ -n "${{ steps.app.outputs.build_qml_dir }}" ]; then
+            CMD+=("-qmldir=${{ steps.app.outputs.build_qml_dir }}")
           fi
 
           "${CMD[@]}"
 
-      - name: Inspect app bundle after deploy
+      - name: Inspect staged app after deploy
         shell: bash
         run: |
-          APP_PATH="${{ steps.paths.outputs.app_path }}"
-          ls -la "$APP_PATH/Contents"
-          ls -la "$APP_PATH/Contents/MacOS"
-          ls -la "$APP_PATH/Contents/Frameworks"
-          ls -la "$APP_PATH/Contents/PlugIns"
-          ls -la "$APP_PATH/Contents/Resources"
+          APP="${{ steps.stage.outputs.stage_app }}"
+          ls -la "$APP/Contents"
+          ls -la "$APP/Contents/MacOS"
+          ls -la "$APP/Contents/Frameworks"
+          ls -la "$APP/Contents/PlugIns"
+          ls -la "$APP/Contents/Resources"
 
       - name: Collect DMG
         shell: bash
         run: |
           mkdir -p dist
-          find "$GITHUB_WORKSPACE/build" -name "*.dmg" -exec cp {} dist/ \;
+          find "$GITHUB_WORKSPACE/dist/macos" -name "*.dmg" -exec cp {} dist/ \;
 
-      - name: Zip app bundle
+      - name: Zip staged app
         shell: bash
         run: |
-          mkdir -p dist
-          APP_PATH="${{ steps.paths.outputs.app_path }}"
-          ditto -c -k --sequesterRsrc --keepParent "$APP_PATH" dist/AMarinerControl.app.zip
+          APP="${{ steps.stage.outputs.stage_app }}"
+          ditto -c -k --sequesterRsrc --keepParent "$APP" dist/AMarinerControl.app.zip
 
       - name: Upload DMG artifact
         uses: actions/upload-artifact@v4
