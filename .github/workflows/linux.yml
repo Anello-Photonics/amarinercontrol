@@ -112,9 +112,9 @@ jobs:
         run: |
           cat > AppDir/usr/bin/qt.conf <<'EOF'
           [Paths]
-          Plugins=plugins
-          Qml2Imports=qml
-          Imports=qml
+          Plugins=../plugins
+          Qml2Imports=../qml
+          Imports=../qml
           EOF
 
       - name: Keep only SQLite SQL driver
