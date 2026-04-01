@@ -69,17 +69,17 @@ ListModel {
         pageVisible: function() { return true }
     }
 
-    ListElement {
-        name: qsTr("PX4 Log Transfer")
-        url: "qrc:/qml/QGroundControl/AppSettings/PX4LogTransferSettings.qml"
-        iconUrl: "qrc:/InstrumentValueIcons/inbox-download.svg"
-        pageVisible: function() { 
-            var activeVehicle = QGroundControl.multiVehicleManager.activeVehicle
-            return QGroundControl.corePlugin.options.showPX4LogTransferOptions && 
-                        QGroundControl.px4ProFirmwareSupported && 
-                        (activeVehicle ? activeVehicle.px4Firmware : true)
-        }
-    }
+    //ListElement {
+    //    name: qsTr("PX4 Log Transfer")
+    //    url: "qrc:/qml/QGroundControl/AppSettings/PX4LogTransferSettings.qml"
+    //    iconUrl: "qrc:/InstrumentValueIcons/inbox-download.svg"
+    //    pageVisible: function() {
+    //        var activeVehicle = QGroundControl.multiVehicleManager.activeVehicle
+    //        return QGroundControl.corePlugin.options.showPX4LogTransferOptions &&
+    //                    QGroundControl.px4ProFirmwareSupported &&
+    //                    (activeVehicle ? activeVehicle.px4Firmware : true)
+    //    }
+    //}
 
     //ListElement {
     //    name: qsTr("Remote ID")
