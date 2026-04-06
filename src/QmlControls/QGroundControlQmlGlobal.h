@@ -32,6 +32,7 @@ class SettingsManager;
 class VideoManager;
 class UTMSPManager;
 class AirLinkManager;
+class QProcess;
 
 Q_MOC_INCLUDE("ADSBVehicleManager.h")
 Q_MOC_INCLUDE("FactGroup.h")
@@ -105,6 +106,9 @@ public:
     Q_PROPERTY(QString qgcVersion       READ qgcVersion         CONSTANT)
     Q_PROPERTY(QString qgcAppDate       READ qgcAppDate         CONSTANT)
     Q_PROPERTY(bool    qgcDailyBuild    READ qgcDailyBuild      CONSTANT)
+    Q_PROPERTY(QString firmwareUpgradeOutput READ firmwareUpgradeOutput NOTIFY firmwareUpgradeOutputChanged)
+    Q_PROPERTY(QStringList availableSerialPorts READ availableSerialPorts NOTIFY availableSerialPortsChanged)
+    Q_PROPERTY(bool firmwareUpgradeRunning READ firmwareUpgradeRunning NOTIFY firmwareUpgradeRunningChanged)
 
     Q_PROPERTY(qreal zOrderTopMost              READ zOrderTopMost              CONSTANT) ///< z order for top most items, toolbar, main window sub view
     Q_PROPERTY(qreal zOrderWidgets              READ zOrderWidgets              CONSTANT) ///< z order value to widgets, for example: zoom controls, hud widgetss
@@ -157,6 +161,8 @@ public:
     Q_INVOKABLE static void updateLoggingFilterRules();
 
     Q_INVOKABLE bool linesIntersect(QPointF xLine1, QPointF yLine1, QPointF xLine2, QPointF yLine2);
+    Q_INVOKABLE void refreshAvailableSerialPorts();
+    Q_INVOKABLE bool launchFirmwareUpgradeScript(const QString& scriptPath, const QString& port, const QString& firmwarePath);
 
     Q_INVOKABLE QString altitudeModeExtraUnits(AltMode altMode);        ///< String shown in the FactTextField.extraUnits ui
     Q_INVOKABLE QString altitudeModeShortDescription(AltMode altMode);  ///< String shown when a user needs to select an altitude mode
@@ -224,6 +230,9 @@ public:
 
     static QString qgcVersion();
     static QString qgcAppDate() { return QGC_APP_DATE; }
+    QString firmwareUpgradeOutput() const { return _firmwareUpgradeOutput; }
+    QStringList availableSerialPorts() const { return _availableSerialPorts; }
+    bool firmwareUpgradeRunning() const { return _firmwareUpgradeRunning; }
 #ifdef QGC_DAILY_BUILD
     static bool qgcDailyBuild() { return true; }
 #else
@@ -242,6 +251,9 @@ signals:
     void mavlinkSystemIDChanged         (int id);
     void flightMapPositionChanged       (QGeoCoordinate flightMapPosition);
     void flightMapZoomChanged           (double flightMapZoom);
+    void firmwareUpgradeOutputChanged    ();
+    void availableSerialPortsChanged     ();
+    void firmwareUpgradeRunningChanged ();
 
 private:
     QGCMapEngineManager*    _mapEngineManager       = nullptr;
@@ -268,6 +280,11 @@ private:
     QmlUnitsConversion      _unitsConversion;
 
     QStringList             _altitudeModeEnumString;
+
+    QString                 _firmwareUpgradeOutput;
+    QStringList             _availableSerialPorts;
+    QProcess*               _firmwareUpgradeProcess = nullptr;
+    bool                    _firmwareUpgradeRunning = false;
 
     static QGeoCoordinate   _coord;
     static double           _zoom;

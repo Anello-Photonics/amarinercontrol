@@ -321,6 +321,122 @@ ApplicationWindow {
         }
     }
 
+    Dialog {
+        id:                 firmwareUpgradeLauncherDialog
+        title:              qsTr("Firmware Upgrade")
+        modal:              true
+        closePolicy:        Popup.NoAutoClose
+        anchors.centerIn:   Overlay.overlay
+        width:              Math.max(ScreenTools.defaultFontPixelWidth * 70, implicitWidth)
+
+        property string firmwarePath: ""
+
+        onOpened: QGroundControl.refreshAvailableSerialPorts()
+
+        contentItem: ColumnLayout {
+            spacing: ScreenTools.defaultDialogControlSpacing
+
+            QGCLabel {
+                Layout.fillWidth:   true
+                wrapMode:           Text.WordWrap
+                text:               qsTr("Runs the selected ANELLO Python upgrade script with fixed --baud-bootloader 115200.")
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                QGCTextField {
+                    id:                 scriptPathField
+                    Layout.fillWidth:   true
+                    placeholderText:    qsTr("Python script path")
+                }
+                QGCButton {
+                    text: qsTr("Browse")
+                    onClicked: scriptFileDialog.openForLoad()
+                }
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+
+                ComboBox {
+                    id:                 serialPortCombo
+                    Layout.fillWidth:   true
+                    model:              QGroundControl.availableSerialPorts
+                }
+
+                QGCButton {
+                    text: qsTr("Refresh")
+                    onClicked: QGroundControl.refreshAvailableSerialPorts()
+                }
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                QGCTextField {
+                    id:                 firmwarePathField
+                    Layout.fillWidth:   true
+                    placeholderText:    qsTr("Firmware file path (.anello)")
+                    text:               firmwareUpgradeLauncherDialog.firmwarePath
+                }
+                QGCButton {
+                    text: qsTr("Browse")
+                    onClicked: firmwareFileDialog.openForLoad()
+                }
+            }
+
+            QGCLabel {
+                text: qsTr("Script Output")
+            }
+
+            TextArea {
+                id:                 scriptOutputArea
+                Layout.fillWidth:   true
+                Layout.preferredHeight: ScreenTools.defaultFontPixelHeight * 20
+                readOnly:           true
+                text:               QGroundControl.firmwareUpgradeOutput
+                wrapMode:           TextEdit.WrapAnywhere
+                onTextChanged: {
+                    cursorPosition = length
+                }
+            }
+
+            RowLayout {
+                Layout.alignment: Qt.AlignRight
+                spacing: ScreenTools.defaultDialogControlSpacing
+
+                QGCButton {
+                    text: qsTr("Start")
+                    enabled: !QGroundControl.firmwareUpgradeRunning
+                    onClicked: QGroundControl.launchFirmwareUpgradeScript(scriptPathField.text, serialPortCombo.currentText, firmwarePathField.text)
+                }
+
+                QGCButton {
+                    text: qsTr("Close")
+                    enabled: !QGroundControl.firmwareUpgradeRunning
+                    onClicked: firmwareUpgradeLauncherDialog.close()
+                }
+            }
+        }
+    }
+
+    QGCFileDialog {
+        id:             scriptFileDialog
+        title:          qsTr("Select Firmware Upgrade Python Script")
+        nameFilters:    [qsTr("Python Files (*.py)"), qsTr("All Files (*)")]
+        onAcceptedForLoad: (file) => {
+            scriptPathField.text = file
+        }
+    }
+
+    QGCFileDialog {
+        id:             firmwareFileDialog
+        title:          qsTr("Select Firmware File")
+        nameFilters:    [qsTr("ANELLO Firmware Files (*.anello)"), qsTr("All Files (*)")]
+        onAcceptedForLoad: (file) => {
+            firmwareUpgradeLauncherDialog.firmwarePath = file
+        }
+    }
+
     function showToolSelectDialog() {
         if (mainWindow.allowViewSwitch()) {
             mainWindow.showIndicatorDrawer(toolSelectComponent, null)
@@ -391,6 +507,21 @@ ApplicationWindow {
                         }
 
                         SubMenuButton {
+                            id:                 firmwareUpgradeButton
+                            height:             toolSelectDialog._toolButtonHeight
+                            Layout.fillWidth:   true
+                            text:               qsTr("Firmware Upgrade")
+                            imageResource:      "/qmlimages/FirmwareUpgradeIcon.png"
+                            onClicked: {
+                                if (mainWindow.allowViewSwitch()) {
+                                    mainWindow.closeIndicatorDrawer()
+                                    firmwareUpgradeLauncherDialog.open()
+                                }
+                            }
+                        }
+
+
+                        SubMenuButton {
                             id:                 settingsButton
                             height:             toolSelectDialog._toolButtonHeight
                             Layout.fillWidth:   true
@@ -405,6 +536,7 @@ ApplicationWindow {
                                 }
                             }
                         }
+
 
                         SubMenuButton {
                             id:                 closeButton

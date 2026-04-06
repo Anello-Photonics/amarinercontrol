@@ -40,6 +40,10 @@
 
 #include <QtCore/QSettings>
 #include <QtCore/QLineF>
+#include <QtCore/QFileInfo>
+#include <QtCore/QUrl>
+#include <QtCore/QProcess>
+#include <QtSerialPort/QSerialPortInfo>
 
 QGC_LOGGING_CATEGORY(GuidedActionsControllerLog, "GuidedActionsControllerLog")
 
@@ -97,6 +101,7 @@ QGroundControlQmlGlobal::QGroundControlQmlGlobal(QObject *parent)
             _flightMapPositionSettledTimer.start();
         }
     });
+    refreshAvailableSerialPorts();
 }
 
 QGroundControlQmlGlobal::~QGroundControlQmlGlobal()
@@ -234,6 +239,117 @@ bool QGroundControlQmlGlobal::linesIntersect(QPointF line1A, QPointF line1B, QPo
     return  intersect == QLineF::BoundedIntersection &&
             intersectPoint != line1A && intersectPoint != line1B;
 }
+
+void QGroundControlQmlGlobal::refreshAvailableSerialPorts()
+{
+    QStringList ports;
+    const auto portInfos = QSerialPortInfo::availablePorts();
+    for (const QSerialPortInfo& info: portInfos) {
+        if (!info.portName().isEmpty()) {
+#if defined(Q_OS_WIN)
+            ports << info.portName();
+#else
+            ports << (QStringLiteral("/dev/") + info.portName());
+#endif
+        }
+    }
+
+    ports.removeDuplicates();
+    ports.sort();
+    if (ports != _availableSerialPorts) {
+        _availableSerialPorts = ports;
+        emit availableSerialPortsChanged();
+    }
+}
+
+bool QGroundControlQmlGlobal::launchFirmwareUpgradeScript(const QString& scriptPath, const QString& port, const QString& firmwarePath)
+{
+    const QString normalizedScriptPath = QUrl(scriptPath).isLocalFile() ? QUrl(scriptPath).toLocalFile() : scriptPath;
+    const QString normalizedFirmwarePath = QUrl(firmwarePath).isLocalFile() ? QUrl(firmwarePath).toLocalFile() : firmwarePath;
+
+    const QFileInfo scriptInfo(normalizedScriptPath);
+    if (!scriptInfo.exists() || !scriptInfo.isFile()) {
+        qgcApp()->showAppMessage(tr("Firmware upgrade script not found: %1").arg(normalizedScriptPath));
+        return false;
+    }
+
+    const QFileInfo firmwareInfo(normalizedFirmwarePath);
+    if (!firmwareInfo.exists() || !firmwareInfo.isFile()) {
+        qgcApp()->showAppMessage(tr("Firmware file not found: %1").arg(normalizedFirmwarePath));
+        return false;
+    }
+
+    if (port.trimmed().isEmpty()) {
+        qgcApp()->showAppMessage(tr("Serial port is required to launch firmware upgrade."));
+        return false;
+    }
+
+    if (_firmwareUpgradeProcess) {
+        if (_firmwareUpgradeProcess->state() != QProcess::NotRunning) {
+            qgcApp()->showAppMessage(tr("Firmware upgrade is already running."));
+            return false;
+        }
+        _firmwareUpgradeProcess->deleteLater();
+        _firmwareUpgradeProcess = nullptr;
+    }
+
+    _firmwareUpgradeOutput.clear();
+    emit firmwareUpgradeOutputChanged();
+
+    _firmwareUpgradeProcess = new QProcess(this);
+
+    auto appendOutput = [this](const QString& text) {
+        _firmwareUpgradeOutput += text;
+        emit firmwareUpgradeOutputChanged();
+    };
+
+    connect(_firmwareUpgradeProcess, &QProcess::readyReadStandardOutput, this, [this, appendOutput]() {
+        appendOutput(QString::fromUtf8(_firmwareUpgradeProcess->readAllStandardOutput()));
+    });
+    connect(_firmwareUpgradeProcess, &QProcess::readyReadStandardError, this, [this, appendOutput]() {
+        appendOutput(QString::fromUtf8(_firmwareUpgradeProcess->readAllStandardError()));
+    });
+    connect(_firmwareUpgradeProcess, &QProcess::errorOccurred, this, [this, appendOutput](QProcess::ProcessError err) {
+        Q_UNUSED(err)
+        appendOutput(tr("\n[ERROR] Failed to run firmware upgrade process.\n"));
+        _firmwareUpgradeRunning = false;
+        emit firmwareUpgradeRunningChanged();
+    });
+    connect(_firmwareUpgradeProcess, qOverload<int, QProcess::ExitStatus>(&QProcess::finished), this, [this, appendOutput](int exitCode, QProcess::ExitStatus status) {
+        appendOutput(tr("\n[INFO] Firmware upgrade process finished (exit code %1, status %2).\n")
+                         .arg(exitCode)
+                         .arg(status == QProcess::NormalExit ? tr("NormalExit") : tr("CrashExit")));
+        _firmwareUpgradeRunning = false;
+        emit firmwareUpgradeRunningChanged();
+    });
+
+    QStringList arguments;
+    arguments << scriptInfo.absoluteFilePath()
+              << QStringLiteral("--port") << port.trimmed()
+              << QStringLiteral("--baud-bootloader") << QStringLiteral("115200")
+              << firmwareInfo.absoluteFilePath();
+
+#if defined(Q_OS_WIN)
+    const QString pythonProgram = QStringLiteral("python");
+#else
+    const QString pythonProgram = QStringLiteral("python3");
+#endif
+
+    _firmwareUpgradeProcess->start(pythonProgram, arguments);
+    if (!_firmwareUpgradeProcess->waitForStarted(3000)) {
+        _firmwareUpgradeRunning = false;
+        emit firmwareUpgradeRunningChanged();
+        qgcApp()->showAppMessage(tr("Unable to start firmware upgrade script. Please verify Python is installed and in PATH."));
+        return false;
+    }
+
+    _firmwareUpgradeRunning = true;
+    emit firmwareUpgradeRunningChanged();
+
+    appendOutput(tr("[INFO] Started: %1 %2\n").arg(pythonProgram, arguments.join(' ')));
+    return true;
+}
+
 
 void QGroundControlQmlGlobal::setFlightMapPosition(QGeoCoordinate& coordinate)
 {
