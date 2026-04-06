@@ -344,6 +344,22 @@ ApplicationWindow {
 
             RowLayout {
                 Layout.fillWidth: true
+
+                QGCTextField {
+                    id: anelloFWuploaderLink
+                    Layout.fillWidth: true
+                    placeholderText: qsTr("Download the latest firmware uploader script here:")
+                }
+
+                Label {
+                    textFormat: Text.RichText
+                    text: '<a href="https://github.com/Anello-Photonics/ANELLO_INS_Scripts">ANELLO_INS_Scripts</a>'
+                    onLinkActivated: Qt.openUrlExternally(link)
+                }
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
                 QGCTextField {
                     id:                 scriptPathField
                     Layout.fillWidth:   true

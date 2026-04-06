@@ -256,6 +256,10 @@ signals:
     void firmwareUpgradeRunningChanged ();
 
 private:
+    void                    _appendFirmwareUpgradeOutput(const QString& text);
+    static QString          _firmwareUpgradeProgressPhase(const QString& text, int startIndex = 0);
+    void                    _resolveFirmwareUpgradeCarriageReturn(const QString& text, int startIndex);
+    bool                    _truncateCurrentFirmwareUpgradeLineIfProgress(QString* currentPhase = nullptr);
     QGCMapEngineManager*    _mapEngineManager       = nullptr;
     ADSBVehicleManager*     _adsbVehicleManager     = nullptr;
     QGCPositionManager*     _qgcPositionManager     = nullptr;
@@ -282,6 +286,8 @@ private:
     QStringList             _altitudeModeEnumString;
 
     QString                 _firmwareUpgradeOutput;
+    QString                 _firmwareUpgradeAnsiBuffer;
+    bool                    _firmwareUpgradeCarriageReturnPending = false;
     QStringList             _availableSerialPorts;
     QProcess*               _firmwareUpgradeProcess = nullptr;
     bool                    _firmwareUpgradeRunning = false;

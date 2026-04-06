@@ -294,13 +294,14 @@ bool QGroundControlQmlGlobal::launchFirmwareUpgradeScript(const QString& scriptP
     }
 
     _firmwareUpgradeOutput.clear();
+    _firmwareUpgradeAnsiBuffer.clear();
+    _firmwareUpgradeCarriageReturnPending = false;
     emit firmwareUpgradeOutputChanged();
 
     _firmwareUpgradeProcess = new QProcess(this);
 
     auto appendOutput = [this](const QString& text) {
-        _firmwareUpgradeOutput += text;
-        emit firmwareUpgradeOutputChanged();
+        _appendFirmwareUpgradeOutput(text);
     };
 
     connect(_firmwareUpgradeProcess, &QProcess::readyReadStandardOutput, this, [this, appendOutput]() {
@@ -348,6 +349,133 @@ bool QGroundControlQmlGlobal::launchFirmwareUpgradeScript(const QString& scriptP
 
     appendOutput(tr("[INFO] Started: %1 %2\n").arg(pythonProgram, arguments.join(' ')));
     return true;
+}
+
+QString QGroundControlQmlGlobal::_firmwareUpgradeProgressPhase(const QString& text, int startIndex)
+{
+    if (startIndex < 0 || startIndex >= text.length()) {
+        return QString();
+    }
+
+    QString view = text.mid(startIndex).trimmed();
+    if (view.startsWith(QStringLiteral("Erase"))) {
+        return QStringLiteral("Erase");
+    } else if (view.startsWith(QStringLiteral("Program"))) {
+        return QStringLiteral("Program");
+    } else if (view.startsWith(QStringLiteral("Verify"))) {
+        return QStringLiteral("Verify");
+    }
+
+    return QString();
+}
+
+bool QGroundControlQmlGlobal::_truncateCurrentFirmwareUpgradeLineIfProgress(QString* currentPhase)
+{
+    const int lastNewlineIndex = _firmwareUpgradeOutput.lastIndexOf(QLatin1Char('\n'));
+    const int lineStartIndex = (lastNewlineIndex < 0) ? 0 : (lastNewlineIndex + 1);
+    const QString phase = _firmwareUpgradeProgressPhase(_firmwareUpgradeOutput, lineStartIndex);
+
+    if (phase.isEmpty()) {
+        return false;
+    }
+
+    if (currentPhase) {
+        *currentPhase = phase;
+    }
+
+    _firmwareUpgradeOutput.truncate(lineStartIndex);
+    return true;
+}
+
+void QGroundControlQmlGlobal::_resolveFirmwareUpgradeCarriageReturn(const QString& text, int startIndex)
+{
+    if (!_firmwareUpgradeCarriageReturnPending) {
+        return;
+    }
+
+    QString currentPhase;
+    const bool hasCurrentProgressLine = _truncateCurrentFirmwareUpgradeLineIfProgress(&currentPhase);
+    if (!hasCurrentProgressLine) {
+        _firmwareUpgradeCarriageReturnPending = false;
+        return;
+    }
+
+    const QString nextPhase = _firmwareUpgradeProgressPhase(text, startIndex);
+    if (!nextPhase.isEmpty() && nextPhase != currentPhase) {
+        _firmwareUpgradeOutput += QLatin1Char('\n');
+    }
+
+    _firmwareUpgradeCarriageReturnPending = false;
+}
+
+void QGroundControlQmlGlobal::_appendFirmwareUpgradeOutput(const QString& text)
+{
+    if (text.isEmpty()) {
+        return;
+    }
+
+    QString data = _firmwareUpgradeAnsiBuffer + text;
+    _firmwareUpgradeAnsiBuffer.clear();
+
+    bool updated = false;
+
+    for (int index = 0; index < data.length(); ++index) {
+        const QChar character = data.at(index);
+
+        if (character == QLatin1Char('\x1b')) {
+            if ((index + 1) >= data.length()) {
+                _firmwareUpgradeAnsiBuffer = data.mid(index);
+                break;
+            }
+
+            if (data.at(index + 1) == QLatin1Char('[')) {
+                int sequenceIndex = index + 2;
+                while (sequenceIndex < data.length() && !data.at(sequenceIndex).isLetter()) {
+                    sequenceIndex++;
+                }
+
+                if (sequenceIndex >= data.length()) {
+                    _firmwareUpgradeAnsiBuffer = data.mid(index);
+                    break;
+                }
+
+                index = sequenceIndex;
+                continue;
+            }
+        }
+
+        if (character == QLatin1Char('\r')) {
+            _firmwareUpgradeCarriageReturnPending = true;
+            continue;
+        }
+
+        if (_firmwareUpgradeCarriageReturnPending && character == QLatin1Char('\n')) {
+            _firmwareUpgradeCarriageReturnPending = false;
+            _firmwareUpgradeOutput += character;
+            updated = true;
+            continue;
+        }
+
+        if (_firmwareUpgradeCarriageReturnPending) {
+            _resolveFirmwareUpgradeCarriageReturn(data, index);
+            updated = true;
+        }
+
+        if (character == QLatin1Char('\b')) {
+            if (!_firmwareUpgradeOutput.isEmpty() && !_firmwareUpgradeOutput.endsWith(QLatin1Char('\n'))) {
+                _firmwareUpgradeOutput.chop(1);
+                updated = true;
+            }
+            continue;
+        }
+
+        _firmwareUpgradeOutput += character;
+        updated = true;
+    }
+
+    if (updated) {
+        emit firmwareUpgradeOutputChanged();
+    }
 }
 
 
