@@ -330,6 +330,8 @@ ApplicationWindow {
         width:              Math.max(ScreenTools.defaultFontPixelWidth * 70, implicitWidth)
 
         property string firmwarePath: ""
+        readonly property string _firmwareUpgradeOutputLower: QGroundControl.firmwareUpgradeOutput.toLowerCase()
+        readonly property bool _bootloaderNotFound: _firmwareUpgradeOutputLower.includes("bootloader") && (_firmwareUpgradeOutputLower.includes("not found") || _firmwareUpgradeOutputLower.includes("unable to sync") || _firmwareUpgradeOutputLower.includes("timeout") || _firmwareUpgradeOutputLower.includes("timed out"))
 
         onOpened: QGroundControl.refreshAvailableSerialPorts()
 
@@ -408,6 +410,13 @@ ApplicationWindow {
                     text: qsTr("Start")
                     enabled: !QGroundControl.firmwareUpgradeRunning
                     onClicked: QGroundControl.launchFirmwareUpgradeScript(scriptPathField.text, serialPortCombo.currentText, firmwarePathField.text)
+                }
+
+                QGCButton {
+                    text: qsTr("Cancel")
+                    visible: QGroundControl.firmwareUpgradeRunning
+                    enabled: visible
+                    onClicked: QGroundControl.cancelFirmwareUpgradeScript()
                 }
 
                 QGCButton {

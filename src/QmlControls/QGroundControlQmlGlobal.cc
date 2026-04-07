@@ -351,6 +351,21 @@ bool QGroundControlQmlGlobal::launchFirmwareUpgradeScript(const QString& scriptP
     return true;
 }
 
+void QGroundControlQmlGlobal::cancelFirmwareUpgradeScript()
+{
+    if (!_firmwareUpgradeProcess || (_firmwareUpgradeProcess->state() == QProcess::NotRunning)) {
+        return;
+    }
+
+    _appendFirmwareUpgradeOutput(tr("\n[INFO] Cancelling firmware upgrade process.\n"));
+    _firmwareUpgradeProcess->terminate();
+
+    if (!_firmwareUpgradeProcess->waitForFinished(1000)) {
+        _appendFirmwareUpgradeOutput(tr("[WARN] Process did not exit gracefully. Force stopping.\n"));
+        _firmwareUpgradeProcess->kill();
+    }
+}
+
 QString QGroundControlQmlGlobal::_firmwareUpgradeProgressPhase(const QString& text, int startIndex)
 {
     if (startIndex < 0 || startIndex >= text.length()) {
