@@ -400,22 +400,6 @@ ApplicationWindow {
                 }
             }
 
-            QGCLabel {
-                text: qsTr("Script Output")
-            }
-
-            TextArea {
-                id:                 scriptOutputArea
-                Layout.fillWidth:   true
-                Layout.preferredHeight: ScreenTools.defaultFontPixelHeight * 20
-                readOnly:           true
-                text:               QGroundControl.firmwareUpgradeOutput
-                wrapMode:           TextEdit.WrapAnywhere
-                onTextChanged: {
-                    cursorPosition = length
-                }
-            }
-
             RowLayout {
                 Layout.alignment: Qt.AlignRight
                 spacing: ScreenTools.defaultDialogControlSpacing
@@ -430,6 +414,22 @@ ApplicationWindow {
                     text: qsTr("Close")
                     enabled: !QGroundControl.firmwareUpgradeRunning
                     onClicked: firmwareUpgradeLauncherDialog.close()
+                }
+            }
+
+            QGCLabel {
+                text: qsTr("Script Output")
+            }
+
+            TextArea {
+                id:                 scriptOutputArea
+                Layout.fillWidth:   true
+                Layout.preferredHeight: ScreenTools.defaultFontPixelHeight * 20
+                readOnly:           true
+                text:               QGroundControl.firmwareUpgradeOutput
+                wrapMode:           TextEdit.WrapAnywhere
+                onTextChanged: {
+                    cursorPosition = length
                 }
             }
         }
