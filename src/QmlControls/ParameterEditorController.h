@@ -148,6 +148,7 @@ public:
     explicit ParameterEditorController(QObject *parent = nullptr);
     ~ParameterEditorController();
 
+    Q_INVOKABLE bool shouldWarnAllMavlinkDisabled     (Fact *editedFact, const QVariant &editedValue) const;
     Q_INVOKABLE void saveToFile                     (const QString& filename);
     Q_INVOKABLE bool buildDiffFromFile              (const QString& filename);
     Q_INVOKABLE void clearDiff                      (void);
@@ -183,6 +184,8 @@ private slots:
 private:
     bool _shouldShow(Fact *fact) const;
     void _performSearch();
+    bool _isMavlinkConfigFact                       (Fact *fact) const;
+    bool _isMavlinkConfigDisabled                   (Fact *fact, const QVariant &value) const;
 
 private:
     ParameterManager*           _parameterMgr           = nullptr;

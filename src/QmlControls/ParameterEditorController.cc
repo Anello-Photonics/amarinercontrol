@@ -166,6 +166,36 @@ ParameterEditorController::~ParameterEditorController()
     // qCDebug(ParameterEditorControllerLog) << Q_FUNC_INFO << this;
 }
 
+bool ParameterEditorController::shouldWarnAllMavlinkDisabled(Fact *editedFact, const QVariant &editedValue) const
+{
+    if (!editedFact || !_isMavlinkConfigFact(editedFact)) {
+        return false;
+    }
+
+    static const QStringList mavlinkConfigParams {
+        QStringLiteral("MAV_0_CONFIG"),
+        QStringLiteral("MAV_2_CONFIG"),
+    };
+
+    for (const QString &parameterName : mavlinkConfigParams) {
+        if (!_parameterMgr->parameterExists(_vehicle->defaultComponentId(), parameterName)) {
+            continue;
+        }
+
+        Fact *const fact = _parameterMgr->getParameter(_vehicle->defaultComponentId(), parameterName);
+        if (!_isMavlinkConfigFact(fact)) {
+            continue;
+        }
+
+        const QVariant currentValue = (fact == editedFact) ? editedValue : fact->rawValue();
+        if (!_isMavlinkConfigDisabled(fact, currentValue)) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
 void ParameterEditorController::_buildListsForComponent(int compId)
 {
     for (const QString& factName: _parameterMgr->parameterNames(compId)) {
@@ -569,4 +599,31 @@ void ParameterEditorController::setCurrentGroup(QObject* currentGroup)
         _currentGroup = group;
         emit currentGroupChanged();
     }
+}
+
+bool ParameterEditorController::_isMavlinkConfigFact(Fact *fact) const
+{
+    return fact && ((fact->name() == QStringLiteral("MAV_0_CONFIG")) || (fact->name() == QStringLiteral("MAV_2_CONFIG")));
+}
+
+bool ParameterEditorController::_isMavlinkConfigDisabled(Fact *fact, const QVariant &value) const
+{
+    if (!fact) {
+        return false;
+    }
+
+    const QString targetValue = value.toString();
+    const QStringList enumStrings = fact->enumStrings();
+    const QVariantList enumValues = fact->enumValues();
+    const int enumCount = qMin(enumStrings.size(), enumValues.size());
+
+    for (int i = 0; i < enumCount; i++) {
+        if (enumValues[i].toString() == targetValue) {
+            return enumStrings[i].contains(QStringLiteral("Disabled"), Qt::CaseInsensitive) ||
+                   enumStrings[i].contains(QStringLiteral("Disable"), Qt::CaseInsensitive);
+        }
+    }
+
+    // Fallback for non-enum metadata formats.
+    return targetValue == QStringLiteral("0");
 }

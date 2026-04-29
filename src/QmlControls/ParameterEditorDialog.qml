@@ -43,25 +43,59 @@ QGCPopupDialog {
 
     QGCPalette { id: qgcPal; colorGroupEnabled: true }
 
-    onAccepted: {
+    function _proposedFactValue() {
         if (bitmaskColumn.visible && !manualEntry.checked) {
-            fact.value = bitmaskValue();
+            return bitmaskValue()
+        } else if (factCombo.visible && !manualEntry.checked) {
+            return fact.enumValues[factCombo.currentIndex]
+        } else {
+            return valueField.text
+        }
+    }
+
+    function _saveFactValue() {
+        if (bitmaskColumn.visible && !manualEntry.checked) {
+            fact.value = _proposedFactValue()
             fact.valueChanged(fact.value)
+            return true
         } else if (factCombo.visible && !manualEntry.checked) {
             fact.enumIndex = factCombo.currentIndex
+            return true
         } else {
             var errorString = fact.validate(valueField.text, forceSave.checked)
             if (errorString === "") {
                 fact.value = valueField.text
                 fact.valueChanged(fact.value)
+                return true
             } else {
                 validationError.text = errorString
                 if (_allowForceSave) {
                     forceSave.visible = true
                 }
                 preventClose = true
+                return false
             }
         }
+    }
+
+    onAccepted: {
+        const proposedValue = _proposedFactValue()
+        if (controller.shouldWarnAllMavlinkDisabled(fact, proposedValue)) {
+            preventClose = true
+            mainWindow.showMessageDialog(
+                qsTr("MAVLink Disable Warning"),
+                qsTr("Disabling both MAV_0_CONFIG and MAV_2_CONFIG turns off MAVLink telemetry. %1 may no longer be able to reconnect to the vehicle. Continue?")
+                    .arg(QGroundControl.appName),
+                Dialog.Ok | Dialog.Cancel,
+                function() {
+                    if (_saveFactValue()) {
+                        close()
+                    }
+                })
+            return
+        }
+
+        _saveFactValue()
     }
 
     function bitmaskValue() {
