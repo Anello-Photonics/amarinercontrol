@@ -162,7 +162,7 @@ public:
 
     Q_INVOKABLE bool linesIntersect(QPointF xLine1, QPointF yLine1, QPointF xLine2, QPointF yLine2);
     Q_INVOKABLE void refreshAvailableSerialPorts();
-    Q_INVOKABLE bool launchFirmwareUpgradeScript(const QString& scriptPath, const QString& port, const QString& firmwarePath);
+    Q_INVOKABLE bool launchFirmwareUpgradeScript(const QString& scriptPath, const QString& port, const QString& flightstackBaud, const QString& firmwarePath);
     Q_INVOKABLE void cancelFirmwareUpgradeScript();
 
     Q_INVOKABLE QString altitudeModeExtraUnits(AltMode altMode);        ///< String shown in the FactTextField.extraUnits ui

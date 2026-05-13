@@ -341,7 +341,7 @@ ApplicationWindow {
             QGCLabel {
                 Layout.fillWidth:   true
                 wrapMode:           Text.WordWrap
-                text:               qsTr("Runs the selected ANELLO Python upgrade script with fixed --baud-bootloader 115200.")
+                text:               qsTr("Runs the selected ANELLO Python upgrade script with fixed --baud-bootloader 115200 and selected --baud-flightstack.")
             }
 
             RowLayout {
@@ -382,6 +382,17 @@ ApplicationWindow {
                     model:              QGroundControl.availableSerialPorts
                 }
 
+                QGCLabel {
+                    text: qsTr("baudrate")
+                }
+
+                ComboBox {
+                    id:                 flightstackBaudCombo
+                    Layout.fillWidth:   true
+                    model:              ["57600", "115200", "230400", "460800", "921600"]
+                    currentIndex:       0
+                }
+
                 QGCButton {
                     text: qsTr("Refresh")
                     onClicked: QGroundControl.refreshAvailableSerialPorts()
@@ -409,7 +420,7 @@ ApplicationWindow {
                 QGCButton {
                     text: qsTr("Start")
                     enabled: !QGroundControl.firmwareUpgradeRunning
-                    onClicked: QGroundControl.launchFirmwareUpgradeScript(scriptPathField.text, serialPortCombo.currentText, firmwarePathField.text)
+                    onClicked: QGroundControl.launchFirmwareUpgradeScript(scriptPathField.text, serialPortCombo.currentText, flightstackBaudCombo.currentText, firmwarePathField.text)
                 }
 
                 QGCButton {

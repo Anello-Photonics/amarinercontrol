@@ -262,7 +262,7 @@ void QGroundControlQmlGlobal::refreshAvailableSerialPorts()
     }
 }
 
-bool QGroundControlQmlGlobal::launchFirmwareUpgradeScript(const QString& scriptPath, const QString& port, const QString& firmwarePath)
+bool QGroundControlQmlGlobal::launchFirmwareUpgradeScript(const QString& scriptPath, const QString& port, const QString& flightstackBaud, const QString& firmwarePath)
 {
     const QString normalizedScriptPath = QUrl(scriptPath).isLocalFile() ? QUrl(scriptPath).toLocalFile() : scriptPath;
     const QString normalizedFirmwarePath = QUrl(firmwarePath).isLocalFile() ? QUrl(firmwarePath).toLocalFile() : firmwarePath;
@@ -281,6 +281,11 @@ bool QGroundControlQmlGlobal::launchFirmwareUpgradeScript(const QString& scriptP
 
     if (port.trimmed().isEmpty()) {
         qgcApp()->showAppMessage(tr("Serial port is required to launch firmware upgrade."));
+        return false;
+    }
+
+    if (flightstackBaud.trimmed().isEmpty()) {
+        qgcApp()->showAppMessage(tr("Flightstack baud rate is required to launch firmware upgrade."));
         return false;
     }
 
@@ -328,6 +333,7 @@ bool QGroundControlQmlGlobal::launchFirmwareUpgradeScript(const QString& scriptP
     arguments << scriptInfo.absoluteFilePath()
               << QStringLiteral("--port") << port.trimmed()
               << QStringLiteral("--baud-bootloader") << QStringLiteral("115200")
+              << QStringLiteral("--baud-flightstack") << flightstackBaud.trimmed()
               << firmwareInfo.absoluteFilePath();
 
 #if defined(Q_OS_WIN)
