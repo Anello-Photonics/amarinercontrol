@@ -38,6 +38,7 @@ QGCPopupDialog {
     property bool   _allowForceSave:            QGroundControl.corePlugin.showAdvancedUI && _editingParameter
     property bool   _allowDefaultReset:         fact.defaultValueAvailable
     property bool   _showCombo:                 fact.enumStrings.length !== 0 && fact.bitmaskStrings.length === 0 && !validate
+    property var    _numberedEnumStrings:       fact.enumStrings.map((label, idx) => qsTr("%1: %2").arg(idx).arg(label))
 
     ParameterEditorController { id: controller; }
 
@@ -152,7 +153,7 @@ QGCPopupDialog {
             QGCComboBox {
                 id:             factCombo
                 width:          _editFieldWidth
-                model:          fact.enumStrings
+                model:          _numberedEnumStrings
                 sizeToContents: true
                 visible:        _showCombo
                 focus:          setFocus && visible
