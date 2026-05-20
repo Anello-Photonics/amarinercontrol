@@ -26,6 +26,8 @@ Item {
 
     property var    _activeVehicle: QGroundControl.multiVehicleManager.activeVehicle
     property bool   _rtkConnected:  QGroundControl.gpsRtk.connected.value
+    property string _gps1SatCount:  _activeVehicle ? _activeVehicle.gps.count.valueString : ""
+    property string _gps2SatCount:  _activeVehicle ? _activeVehicle.gps2.count.valueString : ""
 
     Row {
         id:             gpsIndicatorRow
@@ -69,7 +71,7 @@ Item {
             QGCLabel {
                 anchors.horizontalCenter:   hdopValue.horizontalCenter
                 color:              qgcPal.buttonText
-                text:               _activeVehicle ? _activeVehicle.gps.count.valueString : ""
+                text:               `${_gps2SatCount}/${_gps1SatCount}`
             }
 
             QGCLabel {
