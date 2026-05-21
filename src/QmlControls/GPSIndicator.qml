@@ -29,6 +29,18 @@ Item {
     property string _gps1SatCount:  _activeVehicle ? _activeVehicle.gps.count.valueString : ""
     property string _gps2SatCount:  _activeVehicle ? _activeVehicle.gps2.count.valueString : ""
 
+    function _formatDop(value) {
+        return isNaN(value) ? "N/A" : value.toFixed(1)
+    }
+
+    function _pdopString(hdopValue, vdopValue) {
+        if (isNaN(hdopValue) || isNaN(vdopValue)) {
+            return "N/A"
+        }
+
+        return Math.sqrt((hdopValue * hdopValue) + (vdopValue * vdopValue)).toFixed(1)
+    }
+
     Row {
         id:             gpsIndicatorRow
         anchors.top:    parent.top
@@ -65,19 +77,21 @@ Item {
         Column {
             id:                     gpsValuesColumn
             anchors.verticalCenter: parent.verticalCenter
-            visible:                _activeVehicle && !isNaN(_activeVehicle.gps.hdop.value)
+            visible:                _activeVehicle
             spacing:                0
 
             QGCLabel {
-                anchors.horizontalCenter:   hdopValue.horizontalCenter
-                color:              qgcPal.buttonText
-                text:               `${_gps2SatCount}/${_gps1SatCount}`
+                color: qgcPal.buttonText
+                text: _activeVehicle
+                    ? `ANT 1: SAT: ${_gps2SatCount}. PDOP: ${_pdopString(_activeVehicle.gps2.hdop.value, _activeVehicle.gps2.vdop.value)}. H_ACC: ${_formatDop(_activeVehicle.gps2.hdop.value)}. V_ACC: ${_formatDop(_activeVehicle.gps2.vdop.value)}.`
+                    : ""
             }
 
             QGCLabel {
-                id:     hdopValue
-                color:  qgcPal.buttonText
-                text:   _activeVehicle ? _activeVehicle.gps.hdop.value.toFixed(1) : ""
+                color: qgcPal.buttonText
+                text: _activeVehicle
+                    ? `ANT 2: SAT: ${_gps1SatCount}. PDOP: ${_pdopString(_activeVehicle.gps.hdop.value, _activeVehicle.gps.vdop.value)}. H_ACC: ${_formatDop(_activeVehicle.gps.hdop.value)}. V_ACC: ${_formatDop(_activeVehicle.gps.vdop.value)}.`
+                    : ""
             }
         }
     }
