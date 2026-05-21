@@ -64,6 +64,19 @@ FunctionEnd
 
 Function un.onInit
   SetShellVarContext all
+  
+  ; Automatically remove any existing installation before continuing.
+  ; This keeps upgrades from leaving stale files behind.
+  ReadRegStr $0 HKLM "Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\${APP_NAME}" "UninstallString"
+  StrCmp $0 "" done
+
+  DetailPrint "Existing ${APP_NAME} installation found; uninstalling old version..."
+  ExecWait '$0 /S' $1
+  IntCmp $1 0 done
+  MessageBox MB_ICONSTOP|MB_OK "Failed to uninstall existing ${APP_NAME} version (exit code: $1). Setup will now exit."
+  Abort
+
+done:
 FunctionEnd
 
 ;--------------------------------
