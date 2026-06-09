@@ -1,0 +1,68 @@
+{
+    "version":      1,
+    "fileType":     "FactMetaData",
+    "QGC.MetaData.Facts":
+[
+{
+    "name":                 "enabled",
+    "shortDesc":            "Enable NTRIP",
+    "longDesc":             "Connect to an NTRIP caster and forward RTCM corrections to connected vehicles.",
+    "type":                 "bool",
+    "default":              false
+},
+{
+    "name":                 "host",
+    "shortDesc":            "Caster host",
+    "longDesc":             "Hostname or IP address of the NTRIP caster.",
+    "type":                 "string",
+    "default":              ""
+},
+{
+    "name":                 "port",
+    "shortDesc":            "Caster port",
+    "longDesc":             "TCP port of the NTRIP caster.",
+    "type":                 "Uint32",
+    "default":              2101,
+    "min":                  1,
+    "max":                  65535
+},
+{
+    "name":                 "mountpoint",
+    "shortDesc":            "Mountpoint",
+    "longDesc":             "NTRIP mountpoint to request from the caster.",
+    "type":                 "string",
+    "default":              ""
+},
+{
+    "name":                 "username",
+    "shortDesc":            "Username",
+    "longDesc":             "Username for NTRIP basic authentication. Leave blank for public casters.",
+    "type":                 "string",
+    "default":              ""
+},
+{
+    "name":                 "password",
+    "shortDesc":            "Password",
+    "longDesc":             "Password for NTRIP basic authentication. Leave blank for public casters.",
+    "type":                 "string",
+    "default":              ""
+},
+{
+    "name":                 "sendGGA",
+    "shortDesc":            "Send GGA",
+    "longDesc":             "Send periodic NMEA GGA messages to the caster using the active vehicle position when available.",
+    "type":                 "bool",
+    "default":              true
+},
+{
+    "name":                 "ggaInterval",
+    "shortDesc":            "GGA interval",
+    "longDesc":             "Interval between GGA position updates sent to the NTRIP caster.",
+    "type":                 "Uint32",
+    "default":              5,
+    "min":                  1,
+    "max":                  60,
+    "units":                "secs"
+}
+]
+}

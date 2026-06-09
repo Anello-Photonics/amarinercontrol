@@ -27,6 +27,7 @@
 #ifndef QGC_NO_SERIAL_LINK
 #include "GPSManager.h"
 #include "GPSRtk.h"
+#include "NTRIPManager.h"
 #endif
 #ifdef QT_DEBUG
 #include "MockLink.h"
@@ -64,6 +65,7 @@ QGroundControlQmlGlobal::QGroundControlQmlGlobal(QObject *parent)
     , _globalPalette(new QGCPalette(this))
 #ifndef QGC_NO_SERIAL_LINK
     , _gpsRtkFactGroup(GPSManager::instance()->gpsRtk()->gpsRtkFactGroup())
+    , _ntripManager(GPSManager::instance()->ntripManager())
 #endif
 #ifndef QGC_AIRLINK_DISABLED
     , _airlinkManager(AirLinkManager::instance())

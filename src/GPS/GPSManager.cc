@@ -9,6 +9,7 @@
 
 #include "GPSManager.h"
 #include "GPSRtk.h"
+#include "NTRIPManager.h"
 #include "QGCLoggingCategory.h"
 
 #include <QtCore/QApplicationStatic>
@@ -20,6 +21,7 @@ Q_APPLICATION_STATIC(GPSManager, _gpsManager);
 GPSManager::GPSManager(QObject *parent)
     : QObject(parent)
     , _gpsRtk(new GPSRtk(this))
+    , _ntripManager(new NTRIPManager(this))
 {
     // qCDebug(GPSManagerLog) << Q_FUNC_INFO << this;
 }

@@ -15,6 +15,7 @@
 Q_DECLARE_LOGGING_CATEGORY(GPSManagerLog)
 
 class GPSRtk;
+class NTRIPManager;
 
 class GPSManager : public QObject
 {
@@ -27,7 +28,9 @@ public:
     static GPSManager *instance();
 
     GPSRtk *gpsRtk() { return _gpsRtk; }
+    NTRIPManager *ntripManager() { return _ntripManager; }
 
 private:
     GPSRtk *_gpsRtk = nullptr;
+    NTRIPManager *_ntripManager = nullptr;
 };

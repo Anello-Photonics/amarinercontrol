@@ -10,6 +10,8 @@ target_sources(${CMAKE_PROJECT_NAME}
         GPSProvider.h
         GPSRtk.cc
         GPSRtk.h
+        NTRIPManager.cc
+        NTRIPManager.h
         GPSRTKFactGroup.cc
         GPSRTKFactGroup.h
         RTCMMavlink.cc

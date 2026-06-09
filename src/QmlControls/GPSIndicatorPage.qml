@@ -23,6 +23,7 @@ ToolIndicatorPage {
     property string na:                 qsTr("N/A", "No data to display")
     property string valueNA:            qsTr("--.--", "No data to display")
     property var    rtkSettings:        QGroundControl.settingsManager.rtkSettings
+    property var    ntripSettings:      QGroundControl.settingsManager.ntripSettings
     property var    useFixedPosition:           rtkSettings.useFixedBasePosition.rawValue
     property var    manufacturer:       rtkSettings.baseReceiverManufacturers.rawValue
 
@@ -227,6 +228,74 @@ ToolIndicatorPage {
                     useFixedPosition == BaseModeDefinition.BaseFixed
                     && (settingsDisplayId & _ublox)
                 )
+            }
+
+            SettingsGroupLayout {
+                Layout.fillWidth: true
+                heading: qsTr("NTRIP / RTK")
+
+                FactCheckBoxSlider {
+                    Layout.fillWidth: true
+                    text:             qsTr("Enable NTRIP")
+                    fact:             ntripSettings.enabled
+                }
+
+                LabelledFactTextField {
+                    label: ntripSettings.host.shortDescription
+                    fact:  ntripSettings.host
+                }
+
+                LabelledFactTextField {
+                    label: ntripSettings.port.shortDescription
+                    fact:  ntripSettings.port
+                }
+
+                LabelledFactTextField {
+                    label: ntripSettings.mountpoint.shortDescription
+                    fact:  ntripSettings.mountpoint
+                }
+
+                LabelledFactTextField {
+                    label: ntripSettings.username.shortDescription
+                    fact:  ntripSettings.username
+                }
+
+                LabelledFactTextField {
+                    label:              ntripSettings.password.shortDescription
+                    fact:               ntripSettings.password
+                    textField.echoMode: TextInput.Password
+                }
+
+                FactCheckBoxSlider {
+                    Layout.fillWidth: true
+                    text:             ntripSettings.sendGGA.shortDescription
+                    fact:             ntripSettings.sendGGA
+                }
+
+                LabelledFactTextField {
+                    label: ntripSettings.ggaInterval.shortDescription
+                    fact:  ntripSettings.ggaInterval
+                }
+
+                LabelledLabel {
+                    label:     qsTr("Status")
+                    labelText: QGroundControl.ntripManager.statusText
+                }
+
+                LabelledLabel {
+                    label:     qsTr("Data")
+                    labelText: qsTr("%1 bytes, %2 messages, %3 B/s")
+                        .arg(QGroundControl.ntripManager.bytesReceived)
+                        .arg(QGroundControl.ntripManager.messagesReceived)
+                        .arg(QGroundControl.ntripManager.dataRateBytesPerSecond.toFixed(1))
+                }
+
+                LabelledButton {
+                    label:      qsTr("Connection")
+                    buttonText: qsTr("Reconnect")
+                    enabled:    ntripSettings.enabled.rawValue
+                    onClicked:  QGroundControl.ntripManager.reconnect()
+                }
             }
 
             LabelledButton {
