@@ -331,6 +331,7 @@ ApplicationWindow {
         height:             Math.min(_maximumHeight, Math.max(ScreenTools.defaultFontPixelHeight * 38, implicitHeight))
 
         property string firmwarePath: ""
+        readonly property string _firmwareUpgradeScriptPathSettingsKey: "FirmwareUpgradeScriptPath"
         readonly property real _minimumWidth: Math.max(ScreenTools.defaultFontPixelWidth * 50, implicitWidth)
         readonly property real _minimumHeight: ScreenTools.defaultFontPixelHeight * 24
         readonly property real _maximumWidth: Overlay.overlay ? Overlay.overlay.width * 0.95 : ScreenTools.defaultFontPixelWidth * 120
@@ -338,7 +339,10 @@ ApplicationWindow {
         readonly property string _firmwareUpgradeOutputLower: QGroundControl.firmwareUpgradeOutput.toLowerCase()
         readonly property bool _bootloaderNotFound: _firmwareUpgradeOutputLower.includes("bootloader") && (_firmwareUpgradeOutputLower.includes("not found") || _firmwareUpgradeOutputLower.includes("unable to sync") || _firmwareUpgradeOutputLower.includes("timeout") || _firmwareUpgradeOutputLower.includes("timed out"))
 
-        onOpened: QGroundControl.refreshAvailableSerialPorts()
+        onOpened: {
+            QGroundControl.refreshAvailableSerialPorts()
+            scriptPathField.text = QGroundControl.loadGlobalSetting(_firmwareUpgradeScriptPathSettingsKey, scriptPathField.text)
+        }
 
         contentItem: ColumnLayout {
             spacing: ScreenTools.defaultDialogControlSpacing
@@ -425,7 +429,11 @@ ApplicationWindow {
                 QGCButton {
                     text: qsTr("Start")
                     enabled: !QGroundControl.firmwareUpgradeRunning
-                    onClicked: QGroundControl.launchFirmwareUpgradeScript(scriptPathField.text, serialPortCombo.currentText, flightstackBaudCombo.currentText, firmwarePathField.text)
+                    onClicked: {
+                        if (QGroundControl.launchFirmwareUpgradeScript(scriptPathField.text, serialPortCombo.currentText, flightstackBaudCombo.currentText, firmwarePathField.text)) {
+                            QGroundControl.saveGlobalSetting(firmwareUpgradeLauncherDialog._firmwareUpgradeScriptPathSettingsKey, scriptPathField.text)
+                        }
+                    }
                 }
 
                 QGCButton {
@@ -505,6 +513,7 @@ ApplicationWindow {
         nameFilters:    [qsTr("Python Files (*.py)"), qsTr("All Files (*)")]
         onAcceptedForLoad: (file) => {
             scriptPathField.text = file
+            QGroundControl.saveGlobalSetting(firmwareUpgradeLauncherDialog._firmwareUpgradeScriptPathSettingsKey, file)
         }
     }
 
