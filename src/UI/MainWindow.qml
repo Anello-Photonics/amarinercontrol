@@ -327,13 +327,22 @@ ApplicationWindow {
         modal:              true
         closePolicy:        Popup.NoAutoClose
         anchors.centerIn:   Overlay.overlay
-        width:              Math.max(ScreenTools.defaultFontPixelWidth * 70, implicitWidth)
+        width:              Math.min(_maximumWidth, Math.max(ScreenTools.defaultFontPixelWidth * 70, implicitWidth))
+        height:             Math.min(_maximumHeight, Math.max(ScreenTools.defaultFontPixelHeight * 38, implicitHeight))
 
         property string firmwarePath: ""
+        readonly property string _firmwareUpgradeScriptPathSettingsKey: "FirmwareUpgradeScriptPath"
+        readonly property real _minimumWidth: Math.max(ScreenTools.defaultFontPixelWidth * 50, implicitWidth)
+        readonly property real _minimumHeight: ScreenTools.defaultFontPixelHeight * 24
+        readonly property real _maximumWidth: Overlay.overlay ? Overlay.overlay.width * 0.95 : ScreenTools.defaultFontPixelWidth * 120
+        readonly property real _maximumHeight: Overlay.overlay ? Overlay.overlay.height * 0.9 : ScreenTools.defaultFontPixelHeight * 50
         readonly property string _firmwareUpgradeOutputLower: QGroundControl.firmwareUpgradeOutput.toLowerCase()
         readonly property bool _bootloaderNotFound: _firmwareUpgradeOutputLower.includes("bootloader") && (_firmwareUpgradeOutputLower.includes("not found") || _firmwareUpgradeOutputLower.includes("unable to sync") || _firmwareUpgradeOutputLower.includes("timeout") || _firmwareUpgradeOutputLower.includes("timed out"))
 
-        onOpened: QGroundControl.refreshAvailableSerialPorts()
+        onOpened: {
+            QGroundControl.refreshAvailableSerialPorts()
+            scriptPathField.text = QGroundControl.loadGlobalSetting(_firmwareUpgradeScriptPathSettingsKey, scriptPathField.text)
+        }
 
         contentItem: ColumnLayout {
             spacing: ScreenTools.defaultDialogControlSpacing
@@ -420,7 +429,11 @@ ApplicationWindow {
                 QGCButton {
                     text: qsTr("Start")
                     enabled: !QGroundControl.firmwareUpgradeRunning
-                    onClicked: QGroundControl.launchFirmwareUpgradeScript(scriptPathField.text, serialPortCombo.currentText, flightstackBaudCombo.currentText, firmwarePathField.text)
+                    onClicked: {
+                        if (QGroundControl.launchFirmwareUpgradeScript(scriptPathField.text, serialPortCombo.currentText, flightstackBaudCombo.currentText, firmwarePathField.text)) {
+                            QGroundControl.saveGlobalSetting(firmwareUpgradeLauncherDialog._firmwareUpgradeScriptPathSettingsKey, scriptPathField.text)
+                        }
+                    }
                 }
 
                 QGCButton {
@@ -444,12 +457,51 @@ ApplicationWindow {
             TextArea {
                 id:                 scriptOutputArea
                 Layout.fillWidth:   true
-                Layout.preferredHeight: ScreenTools.defaultFontPixelHeight * 20
+                Layout.fillHeight:  true
+                Layout.minimumHeight: ScreenTools.defaultFontPixelHeight * 8
                 readOnly:           true
                 text:               QGroundControl.firmwareUpgradeOutput
                 wrapMode:           TextEdit.WrapAnywhere
                 onTextChanged: {
                     cursorPosition = length
+                }
+            }
+
+            Rectangle {
+                Layout.alignment:   Qt.AlignRight
+                width:              ScreenTools.defaultFontPixelHeight
+                height:             width
+                color:              "transparent"
+
+                QGCLabel {
+                    anchors.centerIn: parent
+                    text:             qsTr("↘")
+                    opacity:          0.6
+                }
+
+                MouseArea {
+                    id:               firmwareUpgradeResizeHandle
+                    anchors.fill:     parent
+                    cursorShape:      Qt.SizeFDiagCursor
+
+                    property real startWidth
+                    property real startHeight
+                    property real startMouseX
+                    property real startMouseY
+
+                    onPressed: (mouse) => {
+                        startWidth = firmwareUpgradeLauncherDialog.width
+                        startHeight = firmwareUpgradeLauncherDialog.height
+                        startMouseX = mouse.x
+                        startMouseY = mouse.y
+                    }
+
+                    onPositionChanged: (mouse) => {
+                        if (pressed) {
+                            firmwareUpgradeLauncherDialog.width = Math.min(firmwareUpgradeLauncherDialog._maximumWidth, Math.max(firmwareUpgradeLauncherDialog._minimumWidth, startWidth + mouse.x - startMouseX))
+                            firmwareUpgradeLauncherDialog.height = Math.min(firmwareUpgradeLauncherDialog._maximumHeight, Math.max(firmwareUpgradeLauncherDialog._minimumHeight, startHeight + mouse.y - startMouseY))
+                        }
+                    }
                 }
             }
         }
@@ -461,6 +513,7 @@ ApplicationWindow {
         nameFilters:    [qsTr("Python Files (*.py)"), qsTr("All Files (*)")]
         onAcceptedForLoad: (file) => {
             scriptPathField.text = file
+            QGroundControl.saveGlobalSetting(firmwareUpgradeLauncherDialog._firmwareUpgradeScriptPathSettingsKey, file)
         }
     }
 
