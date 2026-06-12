@@ -40,6 +40,13 @@
     "units":            "deg"
 },
 {
+    "name":             "vel",
+    "shortDesc": "GPS Speed",
+    "type":             "double",
+    "decimalPlaces":    1,
+    "units":            "m/s"
+},
+{
     "name":             "yaw",
     "shortDesc": "Yaw",
     "type":             "double",

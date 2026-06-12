@@ -15,6 +15,11 @@ import QGroundControl.Controls
 import QGroundControl.FlightDisplay
 
 RowLayout {
+    SpeedTelemetryDisplay {
+        Layout.alignment:       Qt.AlignBottom
+        visible:                _showSingleVehicleUI
+    }
+
     TelemetryValuesBar {
         Layout.alignment:       Qt.AlignBottom
         extraWidth:             instrumentPanel.extraValuesWidth
