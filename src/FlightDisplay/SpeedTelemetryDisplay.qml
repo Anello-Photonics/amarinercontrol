@@ -30,7 +30,8 @@ Item {
             return qsTr("--.--")
         }
 
-        return fact.enumOrValueString + (fact.units ? " " + fact.units : "")
+        var valueText = isNaN(fact.rawValue) ? qsTr("nan") : fact.enumOrValueString
+        return valueText + (fact.units ? " " + fact.units : "")
     }
 
     Rectangle {
