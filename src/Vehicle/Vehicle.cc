@@ -101,6 +101,7 @@ Vehicle::Vehicle(LinkInterface*             link,
     , _vehicleFactGroup             (this)
     , _gpsFactGroup                 (this)
     , _gps2FactGroup                (this)
+    , _gpsInputFactGroup            (this)
     , _windFactGroup                (this)
     , _vibrationFactGroup           (this)
     , _temperatureFactGroup         (this)
@@ -211,6 +212,7 @@ Vehicle::Vehicle(MAV_AUTOPILOT              firmwareType,
     , _vehicleFactGroup                 (this)
     , _gpsFactGroup                     (this)
     , _gps2FactGroup                    (this)
+    , _gpsInputFactGroup                (this)
     , _windFactGroup                    (this)
     , _vibrationFactGroup               (this)
     , _clockFactGroup                   (this)
@@ -321,6 +323,7 @@ void Vehicle::_commonInit()
     // _addFactGroup(_vehicleFactGroup,            _vehicleFactGroupName);
     _addFactGroup(&_gpsFactGroup,               _gpsFactGroupName);
     _addFactGroup(&_gps2FactGroup,              _gps2FactGroupName);
+    _addFactGroup(&_gpsInputFactGroup,          _gpsInputFactGroupName);
     _addFactGroup(&_windFactGroup,              _windFactGroupName);
     _addFactGroup(&_vibrationFactGroup,         _vibrationFactGroupName);
     _addFactGroup(&_temperatureFactGroup,       _temperatureFactGroupName);

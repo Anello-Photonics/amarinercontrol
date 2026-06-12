@@ -28,6 +28,8 @@ Item {
     property bool   _rtkConnected:  QGroundControl.gpsRtk.connected.value
     property string _gps1SatCount:  _activeVehicle ? _activeVehicle.gps.count.valueString : ""
     property string _gps2SatCount:  _activeVehicle ? _activeVehicle.gps2.count.valueString : ""
+    property bool   _gpsInputAvailable: _activeVehicle ? _activeVehicle.gpsInput.telemetryAvailable : false
+    property string _gpsInputSatCount: _gpsInputAvailable ? _activeVehicle.gpsInput.count.valueString : ""
 
     function _formatDop(value) {
         return isNaN(value) ? "N/A" : value.toFixed(1)
@@ -39,6 +41,10 @@ Item {
         }
 
         return Math.sqrt((hdopValue * hdopValue) + (vdopValue * vdopValue)).toFixed(1)
+    }
+
+    function _gpsInfoText(label, gpsGroup, satCount) {
+        return `${label}: SAT: ${satCount}. PDOP: ${_pdopString(gpsGroup.hdop.value, gpsGroup.vdop.value)}. H_ACC: ${_formatDop(gpsGroup.hdop.value)}. V_ACC: ${_formatDop(gpsGroup.vdop.value)}.`
     }
 
     Row {
@@ -74,24 +80,37 @@ Item {
             }
         }
 
-        Column {
-            id:                     gpsValuesColumn
+        Row {
+            id:                     gpsValuesRow
             anchors.verticalCenter: parent.verticalCenter
             visible:                _activeVehicle
-            spacing:                0
+            spacing:                ScreenTools.defaultFontPixelWidth
 
-            QGCLabel {
-                color: qgcPal.buttonText
-                text: _activeVehicle
-                    ? `ANT 1: SAT: ${_gps2SatCount}. PDOP: ${_pdopString(_activeVehicle.gps2.hdop.value, _activeVehicle.gps2.vdop.value)}. H_ACC: ${_formatDop(_activeVehicle.gps2.hdop.value)}. V_ACC: ${_formatDop(_activeVehicle.gps2.vdop.value)}.`
-                    : ""
+            Column {
+                id:                 gpsValuesColumn
+                anchors.verticalCenter: parent.verticalCenter
+                spacing:            0
+
+                QGCLabel {
+                    color: qgcPal.buttonText
+                    text: _activeVehicle ? _gpsInfoText("ANT 1", _activeVehicle.gps2, _gps2SatCount) : ""
+                }
+
+                QGCLabel {
+                    color: qgcPal.buttonText
+                    text: _activeVehicle ? _gpsInfoText("ANT 2", _activeVehicle.gps, _gps1SatCount) : ""
+                }
             }
 
-            QGCLabel {
-                color: qgcPal.buttonText
-                text: _activeVehicle
-                    ? `ANT 2: SAT: ${_gps1SatCount}. PDOP: ${_pdopString(_activeVehicle.gps.hdop.value, _activeVehicle.gps.vdop.value)}. H_ACC: ${_formatDop(_activeVehicle.gps.hdop.value)}. V_ACC: ${_formatDop(_activeVehicle.gps.vdop.value)}.`
-                    : ""
+            Column {
+                anchors.verticalCenter: parent.verticalCenter
+                visible:            _gpsInputAvailable
+                spacing:            0
+
+                QGCLabel {
+                    color: qgcPal.buttonText
+                    text: _gpsInputAvailable ? _gpsInfoText("EXT", _activeVehicle.gpsInput, _gpsInputSatCount) : ""
+                }
             }
         }
     }
