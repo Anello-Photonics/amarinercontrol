@@ -10,6 +10,8 @@
 #include "LogDownloadController.h"
 #include "AppSettings.h"
 #include "LogEntry.h"
+#include "GPSManager.h"
+#include "NTRIPManager.h"
 #include "MAVLinkProtocol.h"
 #include "MultiVehicleManager.h"
 #include "ParameterManager.h"
@@ -52,8 +54,6 @@ void LogDownloadController::download(const QString &path)
 
 void LogDownloadController::_downloadToDirectory(const QString &dir)
 {
-    _receivedAllEntries();
-
     _downloadData.reset();
 
     _downloadPath = dir;
@@ -65,12 +65,14 @@ void LogDownloadController::_downloadToDirectory(const QString &dir)
         _downloadPath += QDir::separator();
     }
 
+    _setDownloading(true);
+    _receivedAllEntries();
+
     QGCLogEntry *const log = _getNextSelected();
     if (log) {
         log->setStatus(tr("Waiting"));
     }
 
-    _setDownloading(true);
     _receivedAllData();
 }
 
@@ -538,6 +540,8 @@ void LogDownloadController::_requestLogList(uint32_t start, uint32_t end)
         return;
     }
 
+    _setListing(true);
+
     mavlink_message_t msg{};
     (void) mavlink_msg_log_request_list_pack_chan(
         MAVLinkProtocol::instance()->getSystemId(),
@@ -552,11 +556,11 @@ void LogDownloadController::_requestLogList(uint32_t start, uint32_t end)
 
     if (!_vehicle->sendMessageOnLinkThreadSafe(sharedLink.get(), msg)) {
         qCWarning(LogDownloadControllerLog) << "Failed to send";
+        _setListing(false);
         return;
     }
 
     qCDebug(LogDownloadControllerLog) << "Request log entry list (" << start << "through" << end << ")";
-    _setListing(true);
     _timer->start(kRequestLogListTimeoutMs);
 }
 
@@ -627,6 +631,7 @@ void LogDownloadController::_setDownloading(bool active)
     if (_downloadingLogs != active) {
         _downloadingLogs = active;
         _vehicle->vehicleLinkManager()->setCommunicationLostEnabled(!active);
+        _updateNTRIPPause();
         emit downloadingLogsChanged();
     }
 }
@@ -636,6 +641,12 @@ void LogDownloadController::_setListing(bool active)
     if (_requestingLogEntries != active) {
         _requestingLogEntries = active;
         _vehicle->vehicleLinkManager()->setCommunicationLostEnabled(!active);
+        _updateNTRIPPause();
         emit requestingListChanged();
     }
+}
+
+void LogDownloadController::_updateNTRIPPause()
+{
+    GPSManager::instance()->ntripManager()->setPaused(_requestingLogEntries || _downloadingLogs);
 }

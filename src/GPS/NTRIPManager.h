@@ -26,6 +26,7 @@ class NTRIPManager : public QObject
     Q_OBJECT
     Q_PROPERTY(bool connected READ connected NOTIFY connectedChanged)
     Q_PROPERTY(bool enabled READ enabled NOTIFY enabledChanged)
+    Q_PROPERTY(bool paused READ paused NOTIFY pausedChanged)
     Q_PROPERTY(QString statusText READ statusText NOTIFY statusTextChanged)
     Q_PROPERTY(quint64 bytesReceived READ bytesReceived NOTIFY statisticsChanged)
     Q_PROPERTY(quint32 messagesReceived READ messagesReceived NOTIFY statisticsChanged)
@@ -37,16 +38,19 @@ public:
 
     bool connected() const;
     bool enabled() const;
+    bool paused() const { return _paused; }
     QString statusText() const { return _statusText; }
     quint64 bytesReceived() const { return _bytesReceived; }
     quint32 messagesReceived() const { return _messagesReceived; }
     double dataRateBytesPerSecond() const { return _dataRateBytesPerSecond; }
 
     Q_INVOKABLE void reconnect();
+    void setPaused(bool paused);
 
 signals:
     void connectedChanged();
     void enabledChanged();
+    void pausedChanged();
     void statusTextChanged();
     void statisticsChanged();
 
@@ -79,6 +83,7 @@ private:
     QByteArray _headerBuffer;
     bool _headersComplete = false;
     bool _connected = false;
+    bool _paused = false;
     QString _statusText;
     int _reconnectAttempt = 0;
     quint64 _bytesReceived = 0;

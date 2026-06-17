@@ -79,6 +79,22 @@ bool NTRIPManager::enabled() const
     return SettingsManager::instance()->ntripSettings()->enabled()->rawValue().toBool();
 }
 
+void NTRIPManager::setPaused(bool paused)
+{
+    if (_paused == paused) {
+        return;
+    }
+
+    _paused = paused;
+    emit pausedChanged();
+
+    if (_paused) {
+        _setStatusText(tr("NTRIP corrections paused"));
+    } else if (_connected) {
+        _setStatusText(tr("NTRIP connected"));
+    }
+}
+
 void NTRIPManager::reconnect()
 {
     if (!enabled()) {
@@ -283,6 +299,11 @@ void NTRIPManager::_processIncomingData(const QByteArray &data)
     _bytesReceived += static_cast<quint64>(data.size());
     ++_messagesReceived;
     emit statisticsChanged();
+
+    if (_paused) {
+        return;
+    }
+
     _rtcmMavlink->RTCMDataUpdate(data);
 }
 
