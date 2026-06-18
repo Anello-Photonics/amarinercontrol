@@ -24,6 +24,7 @@ class FactGroup;
 class LinkManager;
 class MissionCommandTree;
 class MultiVehicleManager;
+class NTRIPManager;
 class QGCCorePlugin;
 class QGCMapEngineManager;
 class QGCPalette;
@@ -50,6 +51,9 @@ Q_MOC_INCLUDE("UTMSPManager.h")
 #endif
 #ifndef QGC_AIRLINK_DISABLED
 Q_MOC_INCLUDE("AirLinkManager.h")
+#endif
+#ifndef QGC_NO_SERIAL_LINK
+Q_MOC_INCLUDE("NTRIPManager.h")
 #endif
 
 class QGroundControlQmlGlobal : public QObject
@@ -84,6 +88,7 @@ public:
     Q_PROPERTY(MissionCommandTree*  missionCommandTree      READ    missionCommandTree      CONSTANT)
 #ifndef QGC_NO_SERIAL_LINK
     Q_PROPERTY(FactGroup*           gpsRtk                  READ    gpsRtkFactGroup         CONSTANT)
+    Q_PROPERTY(NTRIPManager*        ntripManager            READ    ntripManager            CONSTANT)
 #endif
 #ifndef QGC_AIRLINK_DISABLED
     Q_PROPERTY(AirLinkManager*      airlinkManager          READ    airlinkManager          CONSTANT)
@@ -181,6 +186,7 @@ public:
     SettingsManager*        settingsManager     ()  { return _settingsManager; }
 #ifndef QGC_NO_SERIAL_LINK
     FactGroup*              gpsRtkFactGroup     ()  { return _gpsRtkFactGroup; }
+    NTRIPManager*           ntripManager        ()  { return _ntripManager; }
 #endif
     ADSBVehicleManager*     adsbVehicleManager  ()  { return _adsbVehicleManager; }
     QmlUnitsConversion*     unitsConversion     ()  { return &_unitsConversion; }
@@ -273,6 +279,7 @@ private:
     QGCPalette*             _globalPalette          = nullptr;
 #ifndef QGC_NO_SERIAL_LINK
     FactGroup*              _gpsRtkFactGroup        = nullptr;
+    NTRIPManager*           _ntripManager           = nullptr;
 #endif
 #ifndef QGC_AIRLINK_DISABLED
     AirLinkManager*         _airlinkManager         = nullptr;

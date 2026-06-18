@@ -77,6 +77,7 @@ private:
     void _setDownloading(bool active);
     void _setListing(bool active);
     void _updateDataRate();
+    void _updateNTRIPPause();
 
     QGCLogEntry *_getNextSelected() const;
 
