@@ -19,7 +19,7 @@ Item {
     implicitHeight: mainLayout.height + (_toolsMargin * 2)
 
     property var  _activeVehicle:       QGroundControl.multiVehicleManager.activeVehicle
-    property Fact _speedSensorFact:     _activeVehicle ? _activeVehicle.getFact("groundSpeed") : null
+    property Fact _speedSensorFact:     _activeVehicle ? _activeVehicle.getFact("airSpeed") : null
     property Fact _gpsSpeedFact:        _activeVehicle && _activeVehicle.factExists("gps.vel") ? _activeVehicle.getFact("gps.vel") : null
     property bool _displayExpanded:     QGroundControl.settingsManager.flyViewSettings.showSpeedTelemetryDisplay.rawValue
 
