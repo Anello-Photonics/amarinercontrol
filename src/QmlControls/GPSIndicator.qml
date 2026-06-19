@@ -30,6 +30,8 @@ Item {
     property string _gps2SatCount:  _activeVehicle ? _activeVehicle.gps2.count.valueString : ""
     property bool   _gpsInputAvailable: _activeVehicle ? _activeVehicle.gpsInput.telemetryAvailable : false
     property string _gpsInputSatCount: _gpsInputAvailable ? _activeVehicle.gpsInput.count.valueString : ""
+    readonly property bool _gpsExternalSensorPresent: !!_activeVehicle && ((_activeVehicle.sensorsPresentBits & 2) !== 0)
+    readonly property color _gpsExternalSensorColor: _gpsExternalSensorPresent ? "lightgreen" : "red"
 
     function _formatDop(value) {
         return isNaN(value) ? "N/A" : value.toFixed(1)
@@ -108,7 +110,7 @@ Item {
                 spacing:            0
 
                 QGCLabel {
-                    color: qgcPal.buttonText
+                    color: _gpsExternalSensorColor
                     text: _gpsInputAvailable ? _gpsInfoText("EXT", _activeVehicle.gpsInput, _gpsInputSatCount) : ""
                 }
             }

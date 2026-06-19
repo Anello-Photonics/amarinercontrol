@@ -22,6 +22,8 @@ Item {
     property Fact _speedSensorFact:     _activeVehicle ? _activeVehicle.getFact("airSpeed") : null
     property Fact _gpsSpeedFact:        _activeVehicle && _activeVehicle.factExists("gps.vel") ? _activeVehicle.getFact("gps.vel") : null
     property bool _displayExpanded:     QGroundControl.settingsManager.flyViewSettings.showSpeedTelemetryDisplay.rawValue
+    readonly property bool _speedSensorActive: !!_activeVehicle && ((_activeVehicle.sensorsPresentBits & 1) !== 0)
+    readonly property color _speedSensorColor: _speedSensorActive ? "lightgreen" : "red"
 
     QGCPalette { id: qgcPal; colorGroupEnabled: enabled }
 
@@ -80,13 +82,13 @@ Item {
             QGCLabel {
                 Layout.alignment:   Qt.AlignRight
                 text:               qsTr("speed sensor")
-                color:              qgcPal.text
+                color:              _speedSensorColor
             }
 
             QGCLabel {
                 Layout.alignment:   Qt.AlignLeft
                 text:               factValueText(_speedSensorFact)
-                color:              qgcPal.text
+                color:              _speedSensorColor
                 font.pointSize:     ScreenTools.largeFontPointSize
             }
 
