@@ -20,6 +20,11 @@ import QGroundControl.FlightMap
 ColumnLayout {
     width: _rightPanelWidth
 
+    SpeedTelemetryDisplay {
+        Layout.alignment:       Qt.AlignTop | Qt.AlignRight
+        visible:                _showSingleVehicleUI
+    }
+
     TerrainProgress {
         Layout.alignment:       Qt.AlignTop
         Layout.preferredWidth:  _rightPanelWidth

@@ -189,7 +189,7 @@ void VehicleFactGroup::_handleVfrHud(const mavlink_message_t &message)
     mavlink_msg_vfr_hud_decode(&message, &vfrHud);
 
     airSpeed()->setRawValue(qIsNaN(vfrHud.airspeed) ? 0 : vfrHud.airspeed);
-    groundSpeed()->setRawValue(qIsNaN(vfrHud.groundspeed) ? 0 : vfrHud.groundspeed);
+    groundSpeed()->setRawValue(vfrHud.groundspeed);
     climbRate()->setRawValue(qIsNaN(vfrHud.climb) ? 0 : vfrHud.climb);
     throttlePct()->setRawValue(static_cast<int16_t>(vfrHud.throttle));
     if (qIsNaN(_altitudeTuningOffset)) {

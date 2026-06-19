@@ -22,6 +22,7 @@ VehicleGPSFactGroup::VehicleGPSFactGroup(QObject *parent)
     _addFact(&_hdopFact);
     _addFact(&_vdopFact);
     _addFact(&_courseOverGroundFact);
+    _addFact(&_velFact);
     _addFact(&_yawFact);
     _addFact(&_lockFact);
     _addFact(&_countFact);
@@ -32,6 +33,7 @@ VehicleGPSFactGroup::VehicleGPSFactGroup(QObject *parent)
     _hdopFact.setRawValue(std::numeric_limits<float>::quiet_NaN());
     _vdopFact.setRawValue(std::numeric_limits<float>::quiet_NaN());
     _courseOverGroundFact.setRawValue(std::numeric_limits<float>::quiet_NaN());
+    _velFact.setRawValue(std::numeric_limits<float>::quiet_NaN());
     _yawFact.setRawValue(std::numeric_limits<int16_t>::quiet_NaN());
 }
 
@@ -66,6 +68,7 @@ void VehicleGPSFactGroup::_handleGpsRawInt(const mavlink_message_t &message)
     hdop()->setRawValue((gpsRawInt.eph == UINT16_MAX) ? qQNaN() : (gpsRawInt.eph / 100.0));
     vdop()->setRawValue((gpsRawInt.epv == UINT16_MAX) ? qQNaN() : (gpsRawInt.epv / 100.0));
     courseOverGround()->setRawValue((gpsRawInt.cog == UINT16_MAX) ? qQNaN() : (gpsRawInt.cog / 100.0));
+    vel()->setRawValue((gpsRawInt.vel == UINT16_MAX) ? qQNaN() : (gpsRawInt.vel / 100.0));
     yaw()->setRawValue((gpsRawInt.yaw == UINT16_MAX) ? qQNaN() : (gpsRawInt.yaw / 100.0));
     lock()->setRawValue(gpsRawInt.fix_type);
 

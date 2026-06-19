@@ -24,6 +24,12 @@
     "default":     false
 },
 {
+    "name":             "showSpeedTelemetryDisplay",
+    "shortDesc": "Show/Hide the fixed speed telemetry display",
+    "type":             "bool",
+    "default":     true
+},
+{
     "name":             "showAdditionalIndicatorsCompass",
     "shortDesc": "Show additional heading indicators on Compass",
     "type":             "bool",
