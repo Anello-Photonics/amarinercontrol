@@ -33,7 +33,8 @@ class SettingsManager;
 class VideoManager;
 class UTMSPManager;
 class AirLinkManager;
-class QProcess;
+class AnelloFirmwareUpgradeWorker;
+class QThread;
 
 Q_MOC_INCLUDE("ADSBVehicleManager.h")
 Q_MOC_INCLUDE("FactGroup.h")
@@ -167,8 +168,8 @@ public:
 
     Q_INVOKABLE bool linesIntersect(QPointF xLine1, QPointF yLine1, QPointF xLine2, QPointF yLine2);
     Q_INVOKABLE void refreshAvailableSerialPorts();
-    Q_INVOKABLE bool launchFirmwareUpgradeScript(const QString& scriptPath, const QString& port, const QString& flightstackBaud, const QString& firmwarePath);
-    Q_INVOKABLE void cancelFirmwareUpgradeScript();
+    Q_INVOKABLE bool launchFirmwareUpgrade(const QString& port, const QString& flightstackBaud, const QString& firmwarePath);
+    Q_INVOKABLE void cancelFirmwareUpgrade();
 
     Q_INVOKABLE QString altitudeModeExtraUnits(AltMode altMode);        ///< String shown in the FactTextField.extraUnits ui
     Q_INVOKABLE QString altitudeModeShortDescription(AltMode altMode);  ///< String shown when a user needs to select an altitude mode
@@ -297,7 +298,8 @@ private:
     QString                 _firmwareUpgradeAnsiBuffer;
     bool                    _firmwareUpgradeCarriageReturnPending = false;
     QStringList             _availableSerialPorts;
-    QProcess*               _firmwareUpgradeProcess = nullptr;
+    QThread*                _firmwareUpgradeThread = nullptr;
+    AnelloFirmwareUpgradeWorker* _firmwareUpgradeWorker = nullptr;
     bool                    _firmwareUpgradeRunning = false;
 
     static QGeoCoordinate   _coord;

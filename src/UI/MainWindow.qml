@@ -328,10 +328,9 @@ ApplicationWindow {
         closePolicy:        Popup.NoAutoClose
         anchors.centerIn:   Overlay.overlay
         width:              Math.min(_maximumWidth, Math.max(ScreenTools.defaultFontPixelWidth * 70, implicitWidth))
-        height:             Math.min(_maximumHeight, Math.max(ScreenTools.defaultFontPixelHeight * 38, implicitHeight))
+        height:             Math.min(_maximumHeight, Math.max(ScreenTools.defaultFontPixelHeight * 32, implicitHeight))
 
         property string firmwarePath: ""
-        readonly property string _firmwareUpgradeScriptPathSettingsKey: "FirmwareUpgradeScriptPath"
         readonly property real _minimumWidth: Math.max(ScreenTools.defaultFontPixelWidth * 50, implicitWidth)
         readonly property real _minimumHeight: ScreenTools.defaultFontPixelHeight * 24
         readonly property real _maximumWidth: Overlay.overlay ? Overlay.overlay.width * 0.95 : ScreenTools.defaultFontPixelWidth * 120
@@ -339,10 +338,7 @@ ApplicationWindow {
         readonly property string _firmwareUpgradeOutputLower: QGroundControl.firmwareUpgradeOutput.toLowerCase()
         readonly property bool _bootloaderNotFound: _firmwareUpgradeOutputLower.includes("bootloader") && (_firmwareUpgradeOutputLower.includes("not found") || _firmwareUpgradeOutputLower.includes("unable to sync") || _firmwareUpgradeOutputLower.includes("timeout") || _firmwareUpgradeOutputLower.includes("timed out"))
 
-        onOpened: {
-            QGroundControl.refreshAvailableSerialPorts()
-            scriptPathField.text = QGroundControl.loadGlobalSetting(_firmwareUpgradeScriptPathSettingsKey, scriptPathField.text)
-        }
+        onOpened: QGroundControl.refreshAvailableSerialPorts()
 
         contentItem: ColumnLayout {
             spacing: ScreenTools.defaultDialogControlSpacing
@@ -350,35 +346,14 @@ ApplicationWindow {
             QGCLabel {
                 Layout.fillWidth:   true
                 wrapMode:           Text.WordWrap
-                text:               qsTr("Runs the selected ANELLO Python upgrade script with fixed --baud-bootloader 115200 and selected --baud-flightstack.")
+                text:               qsTr("Runs the embedded ANELLO firmware upgrade with fixed bootloader baud 115200 and selected flightstack baud.")
             }
 
             RowLayout {
                 Layout.fillWidth: true
 
-                QGCTextField {
-                    id: anelloFWuploaderLink
-                    Layout.fillWidth: true
-                    placeholderText: qsTr("Download the latest firmware uploader script here:")
-                }
-
-                Label {
-                    textFormat: Text.RichText
-                    text: '<a href="https://github.com/Anello-Photonics/ANELLO_INS_Scripts">ANELLO_INS_Scripts</a>'
-                    onLinkActivated: Qt.openUrlExternally(link)
-                }
-            }
-
-            RowLayout {
-                Layout.fillWidth: true
-                QGCTextField {
-                    id:                 scriptPathField
-                    Layout.fillWidth:   true
-                    placeholderText:    qsTr("Python script path")
-                }
-                QGCButton {
-                    text: qsTr("Browse")
-                    onClicked: scriptFileDialog.openForLoad()
+                Text {
+                    text: qsTr("Select the serial port for RS-232-1 and baudrate, then select the ANELLO provided firmware image")
                 }
             }
 
@@ -429,18 +404,14 @@ ApplicationWindow {
                 QGCButton {
                     text: qsTr("Start")
                     enabled: !QGroundControl.firmwareUpgradeRunning
-                    onClicked: {
-                        if (QGroundControl.launchFirmwareUpgradeScript(scriptPathField.text, serialPortCombo.currentText, flightstackBaudCombo.currentText, firmwarePathField.text)) {
-                            QGroundControl.saveGlobalSetting(firmwareUpgradeLauncherDialog._firmwareUpgradeScriptPathSettingsKey, scriptPathField.text)
-                        }
-                    }
+                    onClicked: QGroundControl.launchFirmwareUpgrade(serialPortCombo.currentText, flightstackBaudCombo.currentText, firmwarePathField.text)
                 }
 
                 QGCButton {
                     text: qsTr("Cancel")
                     visible: QGroundControl.firmwareUpgradeRunning
                     enabled: visible
-                    onClicked: QGroundControl.cancelFirmwareUpgradeScript()
+                    onClicked: QGroundControl.cancelFirmwareUpgrade()
                 }
 
                 QGCButton {
@@ -451,7 +422,7 @@ ApplicationWindow {
             }
 
             QGCLabel {
-                text: qsTr("Script Output")
+                text: qsTr("Upgrade Output")
             }
 
             TextArea {
@@ -506,17 +477,6 @@ ApplicationWindow {
             }
         }
     }
-
-    QGCFileDialog {
-        id:             scriptFileDialog
-        title:          qsTr("Select Firmware Upgrade Python Script")
-        nameFilters:    [qsTr("Python Files (*.py)"), qsTr("All Files (*)")]
-        onAcceptedForLoad: (file) => {
-            scriptPathField.text = file
-            QGroundControl.saveGlobalSetting(firmwareUpgradeLauncherDialog._firmwareUpgradeScriptPathSettingsKey, file)
-        }
-    }
-
     QGCFileDialog {
         id:             firmwareFileDialog
         title:          qsTr("Select Firmware File")

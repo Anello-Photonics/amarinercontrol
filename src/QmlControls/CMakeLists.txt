@@ -2,6 +2,8 @@ target_sources(${CMAKE_PROJECT_NAME}
     PRIVATE
         EditPositionDialogController.cc
         EditPositionDialogController.h
+        AnelloFirmwareUpgradeWorker.cc
+        AnelloFirmwareUpgradeWorker.h
         FactValueGrid.cc
         FactValueGrid.h
         FlightPathSegment.cc
