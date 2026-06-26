@@ -9,6 +9,8 @@
 
 #include "QGroundControlQmlGlobal.h"
 
+#include "AnelloFirmwareUpgradeWorker.h"
+
 #include "QGCApplication.h"
 #include "QGCCorePlugin.h"
 #include "LinkManager.h"
@@ -43,7 +45,7 @@
 #include <QtCore/QLineF>
 #include <QtCore/QFileInfo>
 #include <QtCore/QUrl>
-#include <QtCore/QProcess>
+#include <QtCore/QThread>
 #include <QtSerialPort/QSerialPortInfo>
 
 QGC_LOGGING_CATEGORY(GuidedActionsControllerLog, "GuidedActionsControllerLog")
@@ -108,6 +110,13 @@ QGroundControlQmlGlobal::QGroundControlQmlGlobal(QObject *parent)
 
 QGroundControlQmlGlobal::~QGroundControlQmlGlobal()
 {
+    if (_firmwareUpgradeWorker) {
+        _firmwareUpgradeWorker->cancel();
+    }
+    if (_firmwareUpgradeThread) {
+        _firmwareUpgradeThread->quit();
+        _firmwareUpgradeThread->wait(3000);
+    }
 }
 
 void QGroundControlQmlGlobal::saveGlobalSetting (const QString& key, const QString& value)
@@ -264,16 +273,9 @@ void QGroundControlQmlGlobal::refreshAvailableSerialPorts()
     }
 }
 
-bool QGroundControlQmlGlobal::launchFirmwareUpgradeScript(const QString& scriptPath, const QString& port, const QString& flightstackBaud, const QString& firmwarePath)
+bool QGroundControlQmlGlobal::launchFirmwareUpgrade(const QString& port, const QString& flightstackBaud, const QString& firmwarePath)
 {
-    const QString normalizedScriptPath = QUrl(scriptPath).isLocalFile() ? QUrl(scriptPath).toLocalFile() : scriptPath;
     const QString normalizedFirmwarePath = QUrl(firmwarePath).isLocalFile() ? QUrl(firmwarePath).toLocalFile() : firmwarePath;
-
-    const QFileInfo scriptInfo(normalizedScriptPath);
-    if (!scriptInfo.exists() || !scriptInfo.isFile()) {
-        qgcApp()->showAppMessage(tr("Firmware upgrade script not found: %1").arg(normalizedScriptPath));
-        return false;
-    }
 
     const QFileInfo firmwareInfo(normalizedFirmwarePath);
     if (!firmwareInfo.exists() || !firmwareInfo.isFile()) {
@@ -286,18 +288,16 @@ bool QGroundControlQmlGlobal::launchFirmwareUpgradeScript(const QString& scriptP
         return false;
     }
 
-    if (flightstackBaud.trimmed().isEmpty()) {
-        qgcApp()->showAppMessage(tr("Flightstack baud rate is required to launch firmware upgrade."));
+    bool baudOk = false;
+    const qint32 flightstackBaudValue = flightstackBaud.trimmed().toInt(&baudOk);
+    if (!baudOk || flightstackBaudValue <= 0) {
+        qgcApp()->showAppMessage(tr("Valid flightstack baud rate is required to launch firmware upgrade."));
         return false;
     }
 
-    if (_firmwareUpgradeProcess) {
-        if (_firmwareUpgradeProcess->state() != QProcess::NotRunning) {
-            qgcApp()->showAppMessage(tr("Firmware upgrade is already running."));
-            return false;
-        }
-        _firmwareUpgradeProcess->deleteLater();
-        _firmwareUpgradeProcess = nullptr;
+    if (_firmwareUpgradeRunning) {
+        qgcApp()->showAppMessage(tr("Firmware upgrade is already running."));
+        return false;
     }
 
     _firmwareUpgradeOutput.clear();
@@ -305,73 +305,49 @@ bool QGroundControlQmlGlobal::launchFirmwareUpgradeScript(const QString& scriptP
     _firmwareUpgradeCarriageReturnPending = false;
     emit firmwareUpgradeOutputChanged();
 
-    _firmwareUpgradeProcess = new QProcess(this);
+    _firmwareUpgradeThread = new QThread(this);
+    _firmwareUpgradeWorker = new AnelloFirmwareUpgradeWorker(port.trimmed(), 115200, flightstackBaudValue, firmwareInfo.absoluteFilePath());
+    _firmwareUpgradeWorker->moveToThread(_firmwareUpgradeThread);
 
-    auto appendOutput = [this](const QString& text) {
+    connect(_firmwareUpgradeThread, &QThread::started, _firmwareUpgradeWorker, &AnelloFirmwareUpgradeWorker::run);
+    connect(_firmwareUpgradeWorker, &AnelloFirmwareUpgradeWorker::output, this, [this](const QString& text) {
         _appendFirmwareUpgradeOutput(text);
-    };
-
-    connect(_firmwareUpgradeProcess, &QProcess::readyReadStandardOutput, this, [this, appendOutput]() {
-        appendOutput(QString::fromUtf8(_firmwareUpgradeProcess->readAllStandardOutput()));
     });
-    connect(_firmwareUpgradeProcess, &QProcess::readyReadStandardError, this, [this, appendOutput]() {
-        appendOutput(QString::fromUtf8(_firmwareUpgradeProcess->readAllStandardError()));
-    });
-    connect(_firmwareUpgradeProcess, &QProcess::errorOccurred, this, [this, appendOutput](QProcess::ProcessError err) {
-        Q_UNUSED(err)
-        appendOutput(tr("\n[ERROR] Failed to run firmware upgrade process.\n"));
+    connect(_firmwareUpgradeWorker, &AnelloFirmwareUpgradeWorker::finished, this, [this](bool success, int exitCode, const QString& message) {
+        Q_UNUSED(message)
+        _appendFirmwareUpgradeOutput(tr("\n[INFO] Firmware upgrade finished (exit code %1, status %2).\n")
+                                     .arg(exitCode)
+                                     .arg(success ? tr("Success") : tr("Failed")));
         _firmwareUpgradeRunning = false;
+        _firmwareUpgradeWorker = nullptr;
         emit firmwareUpgradeRunningChanged();
     });
-    connect(_firmwareUpgradeProcess, qOverload<int, QProcess::ExitStatus>(&QProcess::finished), this, [this, appendOutput](int exitCode, QProcess::ExitStatus status) {
-        appendOutput(tr("\n[INFO] Firmware upgrade process finished (exit code %1, status %2).\n")
-                         .arg(exitCode)
-                         .arg(status == QProcess::NormalExit ? tr("NormalExit") : tr("CrashExit")));
-        _firmwareUpgradeRunning = false;
-        emit firmwareUpgradeRunningChanged();
+    connect(_firmwareUpgradeWorker, &AnelloFirmwareUpgradeWorker::finished, _firmwareUpgradeWorker, &QObject::deleteLater);
+    connect(_firmwareUpgradeWorker, &AnelloFirmwareUpgradeWorker::finished, _firmwareUpgradeThread, &QThread::quit);
+
+    QThread* firmwareUpgradeThread = _firmwareUpgradeThread;
+    connect(firmwareUpgradeThread, &QThread::finished, this, [this, firmwareUpgradeThread]() {
+        firmwareUpgradeThread->deleteLater();
+        if (_firmwareUpgradeThread == firmwareUpgradeThread) {
+            _firmwareUpgradeThread = nullptr;
+        }
     });
-
-    QStringList arguments;
-    arguments << scriptInfo.absoluteFilePath()
-              << QStringLiteral("--port") << port.trimmed()
-              << QStringLiteral("--baud-bootloader") << QStringLiteral("115200")
-              << QStringLiteral("--baud-flightstack") << flightstackBaud.trimmed()
-              << firmwareInfo.absoluteFilePath();
-
-#if defined(Q_OS_WIN)
-    const QString pythonProgram = QStringLiteral("python");
-#else
-    const QString pythonProgram = QStringLiteral("python3");
-#endif
-
-    _firmwareUpgradeProcess->start(pythonProgram, arguments);
-    if (!_firmwareUpgradeProcess->waitForStarted(3000)) {
-        _firmwareUpgradeRunning = false;
-        emit firmwareUpgradeRunningChanged();
-        qgcApp()->showAppMessage(tr("Unable to start firmware upgrade script. Please verify Python is installed and in PATH."));
-        return false;
-    }
 
     _firmwareUpgradeRunning = true;
     emit firmwareUpgradeRunningChanged();
 
-    appendOutput(tr("[INFO] Started: %1 %2\n").arg(pythonProgram, arguments.join(' ')));
+    _firmwareUpgradeThread->start();
     return true;
 }
 
-void QGroundControlQmlGlobal::cancelFirmwareUpgradeScript()
+void QGroundControlQmlGlobal::cancelFirmwareUpgrade()
 {
-    if (!_firmwareUpgradeProcess || (_firmwareUpgradeProcess->state() == QProcess::NotRunning)) {
+    if (!_firmwareUpgradeRunning || !_firmwareUpgradeWorker) {
         return;
     }
 
-    _appendFirmwareUpgradeOutput(tr("\n[INFO] Cancelling firmware upgrade process.\n"));
-    _firmwareUpgradeProcess->terminate();
-
-    if (!_firmwareUpgradeProcess->waitForFinished(1000)) {
-        _appendFirmwareUpgradeOutput(tr("[WARN] Process did not exit gracefully. Force stopping.\n"));
-        _firmwareUpgradeProcess->kill();
-    }
+    _appendFirmwareUpgradeOutput(tr("\n[INFO] Cancelling firmware upgrade.\n"));
+    _firmwareUpgradeWorker->cancel();
 }
 
 QString QGroundControlQmlGlobal::_firmwareUpgradeProgressPhase(const QString& text, int startIndex)
