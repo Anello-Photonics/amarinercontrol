@@ -444,9 +444,7 @@ void AnelloFirmwareUpgradeWorker::_waitForBootloader()
         }
     }
 
-    _fail(tr("Bootloader not found on %1 after %2 seconds.")
-              .arg(_portName)
-              .arg(kBootloaderWaitMsecs / 1000));
+    _fail(tr("Cannot find bootloader, wrong serial port or baudrate selected"));
 }
 
 void AnelloFirmwareUpgradeWorker::_openBootloaderPort()

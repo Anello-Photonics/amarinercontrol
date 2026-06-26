@@ -149,5 +149,5 @@ private:
     static constexpr int kMavlinkSerialDevice = 10;
     static constexpr int kMavlinkSystemId = 255;
     static constexpr int kMavlinkComponentId = 0;
-    static constexpr int kBootloaderWaitMsecs = 30000;
+    static constexpr int kBootloaderWaitMsecs = 10000;
 };
