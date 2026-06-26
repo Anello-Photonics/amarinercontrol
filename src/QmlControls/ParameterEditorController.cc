@@ -556,7 +556,7 @@ QString ParameterEditorController::_parameterDisplayCategory(Fact *fact) const
     }
 
     const QString name = fact->name();
-    if ((name == QStringLiteral("CAN_TERM")) || name.startsWith(QStringLiteral("NM2K_")) || name.startsWith(QStringLiteral("NMEA"))) {
+    if ((name == QStringLiteral("CAN_TERM")) || name.startsWith(QStringLiteral("NM2K_")) || name.startsWith(QStringLiteral("NMEA")) || name.startsWith(QStringLiteral("NM0183_")) || name.startsWith(QStringLiteral("NMUDP_")) || name.startsWith(QStringLiteral("NM_GNSS_"))) {
         return QStringLiteral("Standard");
     }
 
@@ -573,7 +573,7 @@ QString ParameterEditorController::_parameterDisplayGroup(Fact *fact) const
     if ((name == QStringLiteral("CAN_TERM")) || name.startsWith(QStringLiteral("NM2K_"))) {
         return QStringLiteral("NMEA2000");
     }
-    if (name.startsWith(QStringLiteral("NMEA"))) {
+    if (name.startsWith(QStringLiteral("NM0183_")) || name.startsWith(QStringLiteral("NMUDP_")) || name.startsWith(QStringLiteral("NM_GNSS_"))) {
         return QStringLiteral("NMEA0183");
     }
 
