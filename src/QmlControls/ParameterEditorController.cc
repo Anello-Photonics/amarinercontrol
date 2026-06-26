@@ -11,6 +11,8 @@
 #include "QGCApplication.h"
 #include "ParameterManager.h"
 #include "AppSettings.h"
+#include "ComponentInformationManager.h"
+#include "CompInfoParam.h"
 #include "Vehicle.h"
 #include "QGCLoggingCategory.h"
 
@@ -145,8 +147,6 @@ ParameterEditorController::ParameterEditorController(QObject *parent)
 {
     // qCDebug(ParameterEditorControllerLog) << Q_FUNC_INFO << this;
 
-    _buildLists();
-
     _searchTimer.setSingleShot(true);
     _searchTimer.setInterval(300);
 
@@ -156,9 +156,9 @@ ParameterEditorController::ParameterEditorController(QObject *parent)
     connect(this, &ParameterEditorController::showModifiedOnlyChanged,  this, &ParameterEditorController::_searchTextChanged);
     connect(&_searchTimer, &QTimer::timeout,                            this, &ParameterEditorController::_performSearch);
     connect(_parameterMgr, &ParameterManager::factAdded,                this, &ParameterEditorController::_factAdded);
+    connect(_parameterMgr, &ParameterManager::parametersReadyChanged,   this, &ParameterEditorController::_buildListsIfReady);
 
-    ParameterEditorCategory* category = _categories.count() ? _categories.value<ParameterEditorCategory*>(0) : nullptr;
-    setCurrentCategory(category);
+    _buildListsIfReady(_parameterMgr->parametersReady());
 }
 
 ParameterEditorController::~ParameterEditorController()
@@ -200,25 +200,33 @@ void ParameterEditorController::_buildListsForComponent(int compId)
 {
     for (const QString& factName: _parameterMgr->parameterNames(compId)) {
         Fact* fact = _parameterMgr->getParameter(compId, factName);
+        _refreshFactMetaData(compId, fact);
+
+        if (_shouldHideFromGroupList(fact)) {
+            continue;
+        }
+
+        const QString categoryName = _parameterDisplayCategory(fact);
+        const QString groupName = _parameterDisplayGroup(fact);
 
         ParameterEditorCategory* category = nullptr;
-        if (_mapCategoryName2Category.contains(fact->category())) {
-            category = _mapCategoryName2Category[fact->category()];
+        if (_mapCategoryName2Category.contains(categoryName)) {
+            category = _mapCategoryName2Category[categoryName];
         } else {
             category        = new ParameterEditorCategory(this);
-            category->name  = fact->category();
-            _mapCategoryName2Category[fact->category()] = category;
+            category->name  = categoryName;
+            _mapCategoryName2Category[categoryName] = category;
             _categories.append(category);
         }
 
         ParameterEditorGroup* group = nullptr;
-        if (category->mapGroupName2Group.contains(fact->group())) {
-            group = category->mapGroupName2Group[fact->group()];
+        if (category->mapGroupName2Group.contains(groupName)) {
+            group = category->mapGroupName2Group[groupName];
         } else {
             group               = new ParameterEditorGroup(this);
             group->componentId  = compId;
-            group->name         = fact->group();
-            category->mapGroupName2Group[fact->group()] = group;
+            group->name         = groupName;
+            category->mapGroupName2Group[groupName] = group;
             category->groups.append(group);
         }
 
@@ -228,6 +236,12 @@ void ParameterEditorController::_buildListsForComponent(int compId)
 
 void ParameterEditorController::_buildLists(void)
 {
+    if (_listsBuilt) {
+        return;
+    }
+
+    _listsBuilt = true;
+
     // Autopilot component should always be first list
     _buildListsForComponent(MAV_COMP_ID_AUTOPILOT1);
 
@@ -276,17 +290,43 @@ void ParameterEditorController::_buildLists(void)
     }
 }
 
+
+void ParameterEditorController::_buildListsIfReady(bool parametersReady)
+{
+    if (!parametersReady || _listsBuilt) {
+        return;
+    }
+
+    _buildLists();
+
+    ParameterEditorCategory* category = _categories.count() ? _categories.value<ParameterEditorCategory*>(0) : nullptr;
+    setCurrentCategory(category);
+}
+
 void ParameterEditorController::_factAdded(int compId, Fact* fact)
 {
+    if (!_listsBuilt) {
+        return;
+    }
+
+    _refreshFactMetaData(compId, fact);
+
+    if (_shouldHideFromGroupList(fact)) {
+        return;
+    }
+
+    const QString categoryName = _parameterDisplayCategory(fact);
+    const QString groupName = _parameterDisplayGroup(fact);
+
     bool                        inserted = false;
     ParameterEditorCategory*    category = nullptr;
 
-    if (_mapCategoryName2Category.contains(fact->category())) {
-        category = _mapCategoryName2Category[fact->category()];
+    if (_mapCategoryName2Category.contains(categoryName)) {
+        category = _mapCategoryName2Category[categoryName];
     } else {
         category        = new ParameterEditorCategory(this);
-        category->name  = fact->category();
-        _mapCategoryName2Category[fact->category()] = category;
+        category->name  = categoryName;
+        _mapCategoryName2Category[categoryName] = category;
 
         // Insert in sorted order
         inserted = false;
@@ -303,13 +343,13 @@ void ParameterEditorController::_factAdded(int compId, Fact* fact)
     }
 
     ParameterEditorGroup* group = nullptr;
-    if (category->mapGroupName2Group.contains(fact->group())) {
-        group = category->mapGroupName2Group[fact->group()];
+    if (category->mapGroupName2Group.contains(groupName)) {
+        group = category->mapGroupName2Group[groupName];
     } else {
         group               = new ParameterEditorGroup(this);
         group->componentId  = compId;
-        group->name         = fact->group();
-        category->mapGroupName2Group[fact->group()] = group;
+        group->name         = groupName;
+        category->mapGroupName2Group[groupName] = group;
 
         // Insert in sorted order
         QmlObjectListModel& groups = category->groups;
@@ -488,6 +528,61 @@ void ParameterEditorController::resetAllToVehicleConfiguration(void)
 {
     _parameterMgr->resetAllToVehicleConfiguration();
     refresh();
+}
+
+
+void ParameterEditorController::_refreshFactMetaData(int compId, Fact *fact) const
+{
+    if (!fact || !_vehicle || !_vehicle->compInfoManager()) {
+        return;
+    }
+
+    CompInfoParam *const compInfoParam = _vehicle->compInfoManager()->compInfoParam(static_cast<uint8_t>(compId));
+    if (!compInfoParam) {
+        return;
+    }
+
+    FactMetaData *const factMetaData = compInfoParam->factMetaDataForName(fact->name(), fact->type());
+    if (factMetaData && factMetaData != fact->metaData()) {
+        fact->setMetaData(factMetaData);
+    }
+}
+
+
+QString ParameterEditorController::_parameterDisplayCategory(Fact *fact) const
+{
+    if (!fact) {
+        return QString();
+    }
+
+    const QString name = fact->name();
+    if ((name == QStringLiteral("CAN_TERM")) || name.startsWith(QStringLiteral("NM2K_")) || name.startsWith(QStringLiteral("NMEA"))) {
+        return QStringLiteral("Standard");
+    }
+
+    return fact->category();
+}
+
+QString ParameterEditorController::_parameterDisplayGroup(Fact *fact) const
+{
+    if (!fact) {
+        return QString();
+    }
+
+    const QString name = fact->name();
+    if ((name == QStringLiteral("CAN_TERM")) || name.startsWith(QStringLiteral("NM2K_"))) {
+        return QStringLiteral("NMEA2000");
+    }
+    if (name.startsWith(QStringLiteral("NMEA"))) {
+        return QStringLiteral("NMEA0183");
+    }
+
+    return fact->group();
+}
+
+bool ParameterEditorController::_shouldHideFromGroupList(Fact *fact) const
+{
+    return fact && (_parameterDisplayGroup(fact) == QStringLiteral("Battery Calibration"));
 }
 
 bool ParameterEditorController::_shouldShow(Fact* fact) const

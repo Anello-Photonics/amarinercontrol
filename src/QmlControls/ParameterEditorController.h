@@ -179,10 +179,15 @@ private slots:
     void _searchTextChanged     (void);
     void _buildLists            (void);
     void _buildListsForComponent(int compId);
+    void _buildListsIfReady     (bool parametersReady);
     void _factAdded             (int compId, Fact* fact);
 
 private:
     bool _shouldShow(Fact *fact) const;
+    void _refreshFactMetaData(int compId, Fact *fact) const;
+    QString _parameterDisplayCategory(Fact *fact) const;
+    QString _parameterDisplayGroup(Fact *fact) const;
+    bool _shouldHideFromGroupList(Fact *fact) const;
     void _performSearch();
     bool _isMavlinkConfigFact                       (Fact *fact) const;
     bool _isMavlinkConfigDisabled                   (Fact *fact, const QVariant &value) const;
@@ -196,6 +201,7 @@ private:
     bool                        _showModifiedOnly       = false;
     bool                        _diffOtherVehicle       = false;
     bool                        _diffMultipleComponents = false;
+    bool                        _listsBuilt             = false;
 
     QmlObjectListModel          _categories;
     QmlObjectListModel          _diffList;
