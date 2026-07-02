@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <QtCore/QElapsedTimer>
 #include <QtCore/QLoggingCategory>
 #include <QtCore/QObject>
 #include <QtQmlIntegration/QtQmlIntegration>
@@ -43,6 +44,8 @@ public:
     Q_INVOKABLE void refresh();
     Q_INVOKABLE void download(const QString &path = QString());
     Q_INVOKABLE void eraseAll();
+    Q_INVOKABLE void eraseOldest(int count);
+    Q_INVOKABLE void eraseSelected();
     Q_INVOKABLE void cancel();
 
 signals:
@@ -70,9 +73,11 @@ private:
     void _findMissingEntries();
     void _receivedAllData();
     void _receivedAllEntries();
+    void _abortLogList(const QString &message);
     void _requestLogData(uint16_t id, uint32_t offset, uint32_t count, int retryCount = 0);
     void _requestLogList(uint32_t start, uint32_t end);
     void _requestLogEnd();
+    bool _sendMavlinkShellCommand(const QString &command);
     void _resetSelection(bool canceled = false);
     void _setDownloading(bool active);
     void _setListing(bool active);
@@ -88,6 +93,7 @@ private:
     bool _requestingLogEntries = false;
     int _apmOffset = 0;
     int _retries = 0;
+    QElapsedTimer _logListElapsed;
     std::unique_ptr<LogDownloadData> _downloadData;
     QString _downloadPath;
     Vehicle *_vehicle = nullptr;
@@ -95,4 +101,7 @@ private:
     static constexpr uint32_t kTimeOutMs = 500;
     static constexpr uint32_t kGUIRateMs = 17; ///< 1000ms / 60fps
     static constexpr uint32_t kRequestLogListTimeoutMs = 5000;
+    static constexpr uint32_t kMaxLogListRequestMs = 10000;
+    static constexpr int kMaxLogEntries = 300;
+    static constexpr int kMaxOldestLogEraseCount = 300;
 };

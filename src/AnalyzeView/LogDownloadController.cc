@@ -24,6 +24,9 @@
 #include <QtCore/QApplicationStatic>
 #include <QtCore/QTimer>
 
+#include <algorithm>
+#include <cstring>
+
 QGC_LOGGING_CATEGORY(LogDownloadControllerLog, "qgc.analyzeview.logdownloadcontroller")
 
 LogDownloadController::LogDownloadController(QObject *parent)
@@ -87,6 +90,11 @@ void LogDownloadController::_processDownload()
 
 void LogDownloadController::_findMissingEntries()
 {
+    if (_logListElapsed.isValid() && (_logListElapsed.elapsed() > kMaxLogListRequestMs)) {
+        _abortLogList(tr("Timed out while retrieving log list. You can still erase logs from the vehicle."));
+        return;
+    }
+
     const int num_logs = _logEntriesModel->count();
     int start = -1;
     int end = -1;
@@ -120,8 +128,8 @@ void LogDownloadController::_findMissingEntries()
             }
         }
 
-        _receivedAllEntries();
-        qCWarning(LogDownloadControllerLog) << "Too many errors retreiving log list. Giving up.";
+        _abortLogList(tr("Unable to retrieve the full log list. You can still erase logs from the vehicle."));
+        qCWarning(LogDownloadControllerLog) << "Too many errors retrieving log list. Giving up.";
         return;
     }
 
@@ -160,6 +168,17 @@ void LogDownloadController::_logEntry(uint32_t time_utc, uint32_t size, uint16_t
     Q_UNUSED(last_log_num);
 
     if (!_requestingLogEntries) {
+        return;
+    }
+
+    if (_logListElapsed.isValid() && (_logListElapsed.elapsed() > kMaxLogListRequestMs)) {
+        _abortLogList(tr("Timed out while retrieving log list. You can still erase logs from the vehicle."));
+        return;
+    }
+
+    if (num_logs > kMaxLogEntries) {
+        _abortLogList(tr("Vehicle reported too many logs to display safely. Erase logs from the vehicle to recover."));
+        qCWarning(LogDownloadControllerLog) << "Vehicle reported too many logs to display safely:" << num_logs;
         return;
     }
 
@@ -204,6 +223,22 @@ void LogDownloadController::_logEntry(uint32_t time_utc, uint32_t size, uint16_t
 void LogDownloadController::_receivedAllEntries()
 {
     _timer->stop();
+    _logListElapsed.invalidate();
+    _setListing(false);
+}
+
+void LogDownloadController::_abortLogList(const QString &message)
+{
+    _timer->stop();
+    _requestLogEnd();
+
+    if (_logEntriesModel->count() == 0) {
+        QGCLogEntry *const entry = new QGCLogEntry(0);
+        entry->setStatus(message);
+        _logEntriesModel->append(entry);
+    }
+
+    _logListElapsed.invalidate();
     _setListing(false);
 }
 
@@ -438,6 +473,7 @@ bool LogDownloadController::_prepareLogDownload()
 void LogDownloadController::refresh()
 {
     _logEntriesModel->clearAndDeleteContents();
+    _logListElapsed.start();
     _requestLogList(0, 0xffff);
 }
 
@@ -496,6 +532,112 @@ void LogDownloadController::_resetSelection(bool canceled)
     emit selectionChanged();
 }
 
+
+
+void LogDownloadController::eraseSelected()
+{
+    if (!_vehicle) {
+        qCWarning(LogDownloadControllerLog) << "Vehicle Unavailable";
+        return;
+    }
+
+    QList<uint> logIds;
+    const int numLogs = _logEntriesModel->count();
+    for (int i = 0; i < numLogs; i++) {
+        const QGCLogEntry *const entry = _logEntriesModel->value<const QGCLogEntry*>(i);
+        if (entry && entry->selected() && entry->received()) {
+            logIds.append(entry->id() + _apmOffset);
+        }
+    }
+
+    if (logIds.isEmpty()) {
+        qCWarning(LogDownloadControllerLog) << "No selected logs to erase";
+        return;
+    }
+
+    int sentCount = 0;
+    for (const uint id : logIds) {
+        const QString fileName = QStringLiteral("%1.BIN").arg(id, 8, 10, QLatin1Char('0'));
+        if (!_sendMavlinkShellCommand(QStringLiteral("rm -r /APM/LOGS/%1").arg(fileName))) {
+            qCWarning(LogDownloadControllerLog) << "Failed to send selected log erase command for" << fileName;
+            continue;
+        }
+
+        sentCount++;
+    }
+
+    _resetSelection();
+    _logEntriesModel->clearAndDeleteContents();
+    QGCLogEntry *const entry = new QGCLogEntry(0);
+    entry->setStatus(tr("Erase commands sent for %1 selected logs. Refresh after the vehicle has deleted the logs.").arg(sentCount));
+    _logEntriesModel->append(entry);
+
+    qCDebug(LogDownloadControllerLog) << "Sent selected log erase commands:" << sentCount << "requested:" << logIds.count();
+}
+
+void LogDownloadController::eraseOldest(int count)
+{
+    const int eraseCount = qBound(1, count, kMaxOldestLogEraseCount);
+
+    if (!_vehicle) {
+        qCWarning(LogDownloadControllerLog) << "Vehicle Unavailable";
+        return;
+    }
+
+    QList<const QGCLogEntry*> entries;
+    const int numLogs = _logEntriesModel->count();
+    for (int i = 0; i < numLogs; i++) {
+        const QGCLogEntry *const entry = _logEntriesModel->value<const QGCLogEntry*>(i);
+        if (entry && entry->received()) {
+            entries.append(entry);
+        }
+    }
+
+    std::sort(entries.begin(), entries.end(), [](const QGCLogEntry *left, const QGCLogEntry *right) {
+        const bool leftDateValid = left->time().date().year() >= 2010;
+        const bool rightDateValid = right->time().date().year() >= 2010;
+        if (leftDateValid && rightDateValid && (left->time() != right->time())) {
+            return left->time() < right->time();
+        }
+
+        if (leftDateValid != rightDateValid) {
+            return leftDateValid;
+        }
+
+        return left->id() < right->id();
+    });
+
+    QList<uint> logIds;
+    for (const QGCLogEntry *const entry : entries) {
+        logIds.append(entry->id() + _apmOffset);
+        if (logIds.count() == eraseCount) {
+            break;
+        }
+    }
+
+    for (uint id = 1; logIds.count() < eraseCount; id++) {
+        logIds.append(id);
+    }
+
+    int sentCount = 0;
+    for (const uint id : logIds) {
+        const QString fileName = QStringLiteral("%1.BIN").arg(id, 8, 10, QLatin1Char('0'));
+        if (!_sendMavlinkShellCommand(QStringLiteral("rm -r /APM/LOGS/%1").arg(fileName))) {
+            qCWarning(LogDownloadControllerLog) << "Failed to send oldest log erase command for" << fileName;
+            continue;
+        }
+
+        sentCount++;
+    }
+
+    _logEntriesModel->clearAndDeleteContents();
+    QGCLogEntry *const entry = new QGCLogEntry(0);
+    entry->setStatus(tr("Erase commands sent for the %1 oldest logs. Refresh after the vehicle has deleted the logs.").arg(eraseCount));
+    _logEntriesModel->append(entry);
+
+    qCDebug(LogDownloadControllerLog) << "Sent oldest log erase commands:" << sentCount << "requested:" << eraseCount;
+}
+
 void LogDownloadController::eraseAll()
 {
     if (!_vehicle) {
@@ -524,7 +666,55 @@ void LogDownloadController::eraseAll()
         return;
     }
 
-    refresh();
+    _logEntriesModel->clearAndDeleteContents();
+    QGCLogEntry *const entry = new QGCLogEntry(0);
+    entry->setStatus(tr("Erase command sent. Refresh after the vehicle has deleted the logs."));
+    _logEntriesModel->append(entry);
+}
+
+
+bool LogDownloadController::_sendMavlinkShellCommand(const QString &command)
+{
+    SharedLinkInterfacePtr sharedLink = _vehicle->vehicleLinkManager()->primaryLink().lock();
+    if (!sharedLink) {
+        qCWarning(LogDownloadControllerLog) << "Link Unavailable";
+        return false;
+    }
+
+    QByteArray data = command.toUtf8();
+    data.append('\n');
+
+    while (!data.isEmpty()) {
+        QByteArray chunk = data.left(MAVLINK_MSG_SERIAL_CONTROL_FIELD_DATA_LEN);
+        data.remove(0, chunk.size());
+
+        const uint8_t count = static_cast<uint8_t>(chunk.size());
+        chunk.append(MAVLINK_MSG_SERIAL_CONTROL_FIELD_DATA_LEN - chunk.size(), '\0');
+
+        mavlink_serial_control_t serialControl{};
+        serialControl.device = static_cast<uint8_t>(SERIAL_CONTROL_DEV_SHELL);
+        serialControl.flags = static_cast<uint8_t>(SERIAL_CONTROL_FLAG_EXCLUSIVE | SERIAL_CONTROL_FLAG_RESPOND | SERIAL_CONTROL_FLAG_MULTI);
+        serialControl.timeout = 0;
+        serialControl.baudrate = 0;
+        serialControl.count = count;
+        (void) std::memcpy(serialControl.data, chunk.constData(), count);
+
+        mavlink_message_t msg{};
+        (void) mavlink_msg_serial_control_encode_chan(
+            MAVLinkProtocol::instance()->getSystemId(),
+            MAVLinkProtocol::getComponentId(),
+            sharedLink->mavlinkChannel(),
+            &msg,
+            &serialControl
+        );
+
+        if (!_vehicle->sendMessageOnLinkThreadSafe(sharedLink.get(), msg)) {
+            qCWarning(LogDownloadControllerLog) << "Failed to send";
+            return false;
+        }
+    }
+
+    return true;
 }
 
 void LogDownloadController::_requestLogList(uint32_t start, uint32_t end)

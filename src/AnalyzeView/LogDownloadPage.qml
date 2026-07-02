@@ -167,13 +167,69 @@ AnalyzePage {
 
                 QGCButton {
                     Layout.fillWidth: true
-                    enabled: !LogDownloadController.requestingList && !LogDownloadController.downloadingLogs && (LogDownloadController.model.count > 0)
+                    enabled: !LogDownloadController.downloadingLogs
                     text: qsTr("Erase All")
                     onClicked: mainWindow.showMessageDialog(
                         qsTr("Delete All Log Files"),
                         qsTr("All log files will be erased permanently. Is this really what you want?"),
                         Dialog.Yes | Dialog.No,
                         function() { LogDownloadController.eraseAll() }
+                    )
+                }
+
+                QGCButton {
+                    Layout.fillWidth: true
+                    enabled: !LogDownloadController.downloadingLogs
+                    text: qsTr("Erase Selected")
+
+                    onClicked: {
+                        var logsSelected = false
+                        for (var i = 0; i < LogDownloadController.model.count; i++) {
+                            if (LogDownloadController.model.get(i).selected && LogDownloadController.model.get(i).received) {
+                                logsSelected = true
+                                break
+                            }
+                        }
+
+                        if (!logsSelected) {
+                            mainWindow.showMessageDialog(qsTr("Delete Selected Log Files"), qsTr("You must select at least one received log file to erase."))
+                            return
+                        }
+
+                        mainWindow.showMessageDialog(
+                            qsTr("Delete Selected Log Files"),
+                            qsTr("The selected log files will be erased from the vehicle. Is this really what you want?"),
+                            Dialog.Yes | Dialog.No,
+                            function() { LogDownloadController.eraseSelected() }
+                        )
+                    }
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+
+                    QGCLabel {
+                        text: qsTr("Oldest logs")
+                    }
+
+                    QGCTextField {
+                        id: oldestLogEraseCountField
+                        Layout.fillWidth: true
+                        text: "10"
+                        inputMethodHints: Qt.ImhDigitsOnly
+                        validator: IntValidator { bottom: 1; top: 300 }
+                    }
+                }
+
+                QGCButton {
+                    Layout.fillWidth: true
+                    enabled: !LogDownloadController.downloadingLogs && oldestLogEraseCountField.acceptableInput
+                    text: qsTr("Erase Oldest %1").arg(oldestLogEraseCountField.text)
+                    onClicked: mainWindow.showMessageDialog(
+                        qsTr("Delete Oldest Log Files"),
+                        qsTr("The %1 oldest log files will be erased from the vehicle. Is this really what you want?").arg(oldestLogEraseCountField.text),
+                        Dialog.Yes | Dialog.No,
+                        function() { LogDownloadController.eraseOldest(parseInt(oldestLogEraseCountField.text)) }
                     )
                 }
 
