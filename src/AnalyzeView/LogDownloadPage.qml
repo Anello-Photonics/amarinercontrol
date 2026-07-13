@@ -185,13 +185,6 @@ AnalyzePage {
                 RowLayout {
                     Layout.fillWidth: true
 
-                    QGCTextField {
-                        id: logGroupField
-                        Layout.fillWidth: true
-                        placeholderText: qsTr("YYYY-MM-DD")
-                        enabled: !LogDownloadController.downloadingLogs
-                    }
-
                     QGCComboBox {
                         id: logGroupCombo
                         model: LogDownloadController.logFolders
