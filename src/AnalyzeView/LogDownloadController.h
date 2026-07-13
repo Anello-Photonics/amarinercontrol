@@ -12,6 +12,7 @@
 #include <QtCore/QElapsedTimer>
 #include <QtCore/QLoggingCategory>
 #include <QtCore/QObject>
+#include <QtCore/QStringList>
 #include <QtQmlIntegration/QtQmlIntegration>
 
 Q_DECLARE_LOGGING_CATEGORY(LogDownloadControllerLog)
@@ -34,6 +35,7 @@ class LogDownloadController : public QObject
     Q_PROPERTY(QmlObjectListModel *model          READ _getModel            CONSTANT)
     Q_PROPERTY(bool               requestingList  READ _getRequestingList   NOTIFY requestingListChanged)
     Q_PROPERTY(bool               downloadingLogs READ _getDownloadingLogs  NOTIFY downloadingLogsChanged)
+    Q_PROPERTY(QStringList        logFolders      READ logFolders           NOTIFY logFoldersChanged)
 
     friend class LogDownloadTest;
 
@@ -44,14 +46,16 @@ public:
     Q_INVOKABLE void refresh();
     Q_INVOKABLE void download(const QString &path = QString());
     Q_INVOKABLE void eraseAll();
-    Q_INVOKABLE void eraseOldest(int count);
-    Q_INVOKABLE void eraseSelected();
+    Q_INVOKABLE void eraseFolder(const QString &folder);
+    Q_INVOKABLE void eraseGroup(const QString &group);
+    QStringList logFolders() const;
     Q_INVOKABLE void cancel();
 
 signals:
     void requestingListChanged();
     void downloadingLogsChanged();
     void selectionChanged();
+    void logFoldersChanged();
 
 private slots:
     void _setActiveVehicle(Vehicle *vehicle);
@@ -103,5 +107,4 @@ private:
     static constexpr uint32_t kRequestLogListTimeoutMs = 5000;
     static constexpr uint32_t kMaxLogListRequestMs = 10000;
     static constexpr int kMaxLogEntries = 300;
-    static constexpr int kMaxOldestLogEraseCount = 300;
 };

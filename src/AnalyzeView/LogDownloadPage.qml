@@ -177,60 +177,50 @@ AnalyzePage {
                     )
                 }
 
-                QGCButton {
+                QGCLabel {
                     Layout.fillWidth: true
-                    enabled: !LogDownloadController.downloadingLogs
-                    text: qsTr("Erase Selected")
-
-                    onClicked: {
-                        var logsSelected = false
-                        for (var i = 0; i < LogDownloadController.model.count; i++) {
-                            if (LogDownloadController.model.get(i).selected && LogDownloadController.model.get(i).received) {
-                                logsSelected = true
-                                break
-                            }
-                        }
-
-                        if (!logsSelected) {
-                            mainWindow.showMessageDialog(qsTr("Delete Selected Log Files"), qsTr("You must select at least one received log file to erase."))
-                            return
-                        }
-
-                        mainWindow.showMessageDialog(
-                            qsTr("Delete Selected Log Files"),
-                            qsTr("The selected log files will be erased from the vehicle. Is this really what you want?"),
-                            Dialog.Yes | Dialog.No,
-                            function() { LogDownloadController.eraseSelected() }
-                        )
-                    }
+                    text: qsTr("Log group")
                 }
 
                 RowLayout {
                     Layout.fillWidth: true
 
-                    QGCLabel {
-                        text: qsTr("Oldest logs")
+                    QGCTextField {
+                        id: logGroupField
+                        Layout.fillWidth: true
+                        placeholderText: qsTr("YYYY-MM-DD")
+                        enabled: !LogDownloadController.downloadingLogs
                     }
 
-                    QGCTextField {
-                        id: oldestLogEraseCountField
-                        Layout.fillWidth: true
-                        text: "10"
-                        inputMethodHints: Qt.ImhDigitsOnly
-                        validator: IntValidator { bottom: 1; top: 300 }
+                    QGCComboBox {
+                        id: logGroupCombo
+                        model: LogDownloadController.logFolders
+                        sizeToContents: true
+                        visible: LogDownloadController.logFolders.length > 0
+                        enabled: !LogDownloadController.downloadingLogs
+                        onActivated: (index) => { logGroupField.text = textAt(index) }
                     }
                 }
 
                 QGCButton {
                     Layout.fillWidth: true
-                    enabled: !LogDownloadController.downloadingLogs && oldestLogEraseCountField.acceptableInput
-                    text: qsTr("Erase Oldest %1").arg(oldestLogEraseCountField.text)
-                    onClicked: mainWindow.showMessageDialog(
-                        qsTr("Delete Oldest Log Files"),
-                        qsTr("The %1 oldest log files will be erased from the vehicle. Is this really what you want?").arg(oldestLogEraseCountField.text),
-                        Dialog.Yes | Dialog.No,
-                        function() { LogDownloadController.eraseOldest(parseInt(oldestLogEraseCountField.text)) }
-                    )
+                    enabled: !LogDownloadController.downloadingLogs && logGroupField.text.trim() !== ""
+                    text: qsTr("Erase Group")
+
+                    onClicked: {
+                        var logGroup = logGroupField.text.trim()
+                        if (logGroup === "") {
+                            mainWindow.showMessageDialog(qsTr("Delete Log Group"), qsTr("You must enter or select a log group to erase."))
+                            return
+                        }
+
+                        mainWindow.showMessageDialog(
+                            qsTr("Delete Log Group"),
+                            qsTr("The log group fs/microsd/log/%1 will be erased from the vehicle using the MAVLink shell. Is this really what you want?").arg(logGroup),
+                            Dialog.Yes | Dialog.No,
+                            function() { LogDownloadController.eraseGroup(logGroup) }
+                        )
+                    }
                 }
 
                 QGCButton {

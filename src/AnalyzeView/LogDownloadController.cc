@@ -23,9 +23,13 @@
 
 #include <QtCore/QApplicationStatic>
 #include <QtCore/QTimer>
+#include <QtCore/QRegularExpression>
 
 #include <algorithm>
-#include <cstring>
+
+namespace {
+constexpr const char *kMavlinkShellLogRoot = "fs/microsd/log";
+}
 
 QGC_LOGGING_CATEGORY(LogDownloadControllerLog, "qgc.analyzeview.logdownloadcontroller")
 
@@ -225,6 +229,7 @@ void LogDownloadController::_receivedAllEntries()
     _timer->stop();
     _logListElapsed.invalidate();
     _setListing(false);
+    emit logFoldersChanged();
 }
 
 void LogDownloadController::_abortLogList(const QString &message)
@@ -473,6 +478,7 @@ bool LogDownloadController::_prepareLogDownload()
 void LogDownloadController::refresh()
 {
     _logEntriesModel->clearAndDeleteContents();
+    emit logFoldersChanged();
     _logListElapsed.start();
     _requestLogList(0, 0xffff);
 }
@@ -532,110 +538,66 @@ void LogDownloadController::_resetSelection(bool canceled)
     emit selectionChanged();
 }
 
+QStringList LogDownloadController::logFolders() const
+{
+    QStringList folders;
+    const int numLogs = _logEntriesModel->count();
+    for (int i = 0; i < numLogs; i++) {
+        const QGCLogEntry *const entry = _logEntriesModel->value<const QGCLogEntry*>(i);
+        if (!entry || !entry->received() || (entry->time().date().year() < 2010)) {
+            continue;
+        }
 
+        const QString folder = entry->time().date().toString(QStringLiteral("yyyy-MM-dd"));
+        if (!folders.contains(folder)) {
+            folders.append(folder);
+        }
+    }
 
-void LogDownloadController::eraseSelected()
+    folders.sort();
+    return folders;
+}
+
+void LogDownloadController::eraseFolder(const QString &folder)
+{
+    eraseGroup(folder);
+}
+
+void LogDownloadController::eraseGroup(const QString &group)
 {
     if (!_vehicle) {
         qCWarning(LogDownloadControllerLog) << "Vehicle Unavailable";
         return;
     }
 
-    QList<uint> logIds;
-    const int numLogs = _logEntriesModel->count();
-    for (int i = 0; i < numLogs; i++) {
-        const QGCLogEntry *const entry = _logEntriesModel->value<const QGCLogEntry*>(i);
-        if (entry && entry->selected() && entry->received()) {
-            logIds.append(entry->id() + _apmOffset);
-        }
+    static const QRegularExpression validLogGroupExpression(QStringLiteral("^[A-Za-z0-9._-]+$"));
+    QString logGroup = group.trimmed();
+    if (logGroup.startsWith(QLatin1Char('/'))) {
+        logGroup.remove(0, 1);
+    }
+    if (logGroup.startsWith(QString::fromLatin1(kMavlinkShellLogRoot) + QLatin1Char('/'))) {
+        logGroup.remove(0, QString::fromLatin1(kMavlinkShellLogRoot).size() + 1);
     }
 
-    if (logIds.isEmpty()) {
-        qCWarning(LogDownloadControllerLog) << "No selected logs to erase";
+    if (!validLogGroupExpression.match(logGroup).hasMatch() || (logGroup == QStringLiteral(".")) || (logGroup == QStringLiteral(".."))) {
+        qCWarning(LogDownloadControllerLog) << "Invalid log group erase request" << group;
         return;
     }
 
-    int sentCount = 0;
-    for (const uint id : logIds) {
-        const QString fileName = QStringLiteral("%1.BIN").arg(id, 8, 10, QLatin1Char('0'));
-        if (!_sendMavlinkShellCommand(QStringLiteral("rm -r /APM/LOGS/%1").arg(fileName))) {
-            qCWarning(LogDownloadControllerLog) << "Failed to send selected log erase command for" << fileName;
-            continue;
-        }
-
-        sentCount++;
+    const QString folderPath = QStringLiteral("%1/%2").arg(QString::fromLatin1(kMavlinkShellLogRoot), logGroup);
+    if (!_sendMavlinkShellCommand(QStringLiteral("rm -r %1").arg(folderPath))) {
+        qCWarning(LogDownloadControllerLog) << "Failed to send log group erase command for" << folderPath;
+        return;
     }
 
     _resetSelection();
     _logEntriesModel->clearAndDeleteContents();
     QGCLogEntry *const entry = new QGCLogEntry(0);
-    entry->setStatus(tr("Erase commands sent for %1 selected logs. Refresh after the vehicle has deleted the logs.").arg(sentCount));
+    entry->setStatus(tr("Erase command sent for %1. Refresh after the vehicle has deleted the log group.").arg(folderPath));
     _logEntriesModel->append(entry);
+    emit logFoldersChanged();
 
-    qCDebug(LogDownloadControllerLog) << "Sent selected log erase commands:" << sentCount << "requested:" << logIds.count();
-}
-
-void LogDownloadController::eraseOldest(int count)
-{
-    const int eraseCount = qBound(1, count, kMaxOldestLogEraseCount);
-
-    if (!_vehicle) {
-        qCWarning(LogDownloadControllerLog) << "Vehicle Unavailable";
-        return;
-    }
-
-    QList<const QGCLogEntry*> entries;
-    const int numLogs = _logEntriesModel->count();
-    for (int i = 0; i < numLogs; i++) {
-        const QGCLogEntry *const entry = _logEntriesModel->value<const QGCLogEntry*>(i);
-        if (entry && entry->received()) {
-            entries.append(entry);
-        }
-    }
-
-    std::sort(entries.begin(), entries.end(), [](const QGCLogEntry *left, const QGCLogEntry *right) {
-        const bool leftDateValid = left->time().date().year() >= 2010;
-        const bool rightDateValid = right->time().date().year() >= 2010;
-        if (leftDateValid && rightDateValid && (left->time() != right->time())) {
-            return left->time() < right->time();
-        }
-
-        if (leftDateValid != rightDateValid) {
-            return leftDateValid;
-        }
-
-        return left->id() < right->id();
-    });
-
-    QList<uint> logIds;
-    for (const QGCLogEntry *const entry : entries) {
-        logIds.append(entry->id() + _apmOffset);
-        if (logIds.count() == eraseCount) {
-            break;
-        }
-    }
-
-    for (uint id = 1; logIds.count() < eraseCount; id++) {
-        logIds.append(id);
-    }
-
-    int sentCount = 0;
-    for (const uint id : logIds) {
-        const QString fileName = QStringLiteral("%1.BIN").arg(id, 8, 10, QLatin1Char('0'));
-        if (!_sendMavlinkShellCommand(QStringLiteral("rm -r /APM/LOGS/%1").arg(fileName))) {
-            qCWarning(LogDownloadControllerLog) << "Failed to send oldest log erase command for" << fileName;
-            continue;
-        }
-
-        sentCount++;
-    }
-
-    _logEntriesModel->clearAndDeleteContents();
-    QGCLogEntry *const entry = new QGCLogEntry(0);
-    entry->setStatus(tr("Erase commands sent for the %1 oldest logs. Refresh after the vehicle has deleted the logs.").arg(eraseCount));
-    _logEntriesModel->append(entry);
-
-    qCDebug(LogDownloadControllerLog) << "Sent oldest log erase commands:" << sentCount << "requested:" << eraseCount;
+    qCDebug(LogDownloadControllerLog) << "Sent log group erase command:" << folderPath;
 }
 
 void LogDownloadController::eraseAll()
@@ -670,6 +632,7 @@ void LogDownloadController::eraseAll()
     QGCLogEntry *const entry = new QGCLogEntry(0);
     entry->setStatus(tr("Erase command sent. Refresh after the vehicle has deleted the logs."));
     _logEntriesModel->append(entry);
+    emit logFoldersChanged();
 }
 
 
@@ -691,21 +654,20 @@ bool LogDownloadController::_sendMavlinkShellCommand(const QString &command)
         const uint8_t count = static_cast<uint8_t>(chunk.size());
         chunk.append(MAVLINK_MSG_SERIAL_CONTROL_FIELD_DATA_LEN - chunk.size(), '\0');
 
-        mavlink_serial_control_t serialControl{};
-        serialControl.device = static_cast<uint8_t>(SERIAL_CONTROL_DEV_SHELL);
-        serialControl.flags = static_cast<uint8_t>(SERIAL_CONTROL_FLAG_EXCLUSIVE | SERIAL_CONTROL_FLAG_RESPOND | SERIAL_CONTROL_FLAG_MULTI);
-        serialControl.timeout = 0;
-        serialControl.baudrate = 0;
-        serialControl.count = count;
-        (void) std::memcpy(serialControl.data, chunk.constData(), count);
-
         mavlink_message_t msg{};
-        (void) mavlink_msg_serial_control_encode_chan(
+        (void) mavlink_msg_serial_control_pack_chan(
             MAVLinkProtocol::instance()->getSystemId(),
             MAVLinkProtocol::getComponentId(),
             sharedLink->mavlinkChannel(),
             &msg,
-            &serialControl
+            SERIAL_CONTROL_DEV_SHELL,
+            SERIAL_CONTROL_FLAG_EXCLUSIVE | SERIAL_CONTROL_FLAG_RESPOND | SERIAL_CONTROL_FLAG_MULTI,
+            0,
+            0,
+            count,
+            reinterpret_cast<uint8_t*>(chunk.data()),
+            _vehicle->id(),
+            _vehicle->defaultComponentId()
         );
 
         if (!_vehicle->sendMessageOnLinkThreadSafe(sharedLink.get(), msg)) {
