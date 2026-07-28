@@ -19,6 +19,8 @@ class VehicleGPSFactGroup : public FactGroup
     Q_PROPERTY(Fact *mgrs               READ mgrs               CONSTANT)
     Q_PROPERTY(Fact *hdop               READ hdop               CONSTANT)
     Q_PROPERTY(Fact *vdop               READ vdop               CONSTANT)
+    Q_PROPERTY(Fact *eph                READ eph                CONSTANT)
+    Q_PROPERTY(Fact *epv                READ epv                CONSTANT)
     Q_PROPERTY(Fact *courseOverGround   READ courseOverGround   CONSTANT)
     Q_PROPERTY(Fact *vel                READ vel                CONSTANT)
     Q_PROPERTY(Fact *yaw                READ yaw                CONSTANT)
@@ -33,6 +35,8 @@ public:
     Fact *mgrs() { return &_mgrsFact; }
     Fact *hdop() { return &_hdopFact; }
     Fact *vdop() { return &_vdopFact; }
+    Fact *eph() { return &_ephFact; }
+    Fact *epv() { return &_epvFact; }
     Fact *courseOverGround() { return &_courseOverGroundFact; }
     Fact *vel() { return &_velFact; }
     Fact *yaw() { return &_yawFact; }
@@ -52,6 +56,8 @@ protected:
     Fact _mgrsFact = Fact(0, QStringLiteral("mgrs"), FactMetaData::valueTypeString);
     Fact _hdopFact = Fact(0, QStringLiteral("hdop"), FactMetaData::valueTypeDouble);
     Fact _vdopFact = Fact(0, QStringLiteral("vdop"), FactMetaData::valueTypeDouble);
+    Fact _ephFact = Fact(0, QStringLiteral("eph"), FactMetaData::valueTypeDouble);
+    Fact _epvFact = Fact(0, QStringLiteral("epv"), FactMetaData::valueTypeDouble);
     Fact _courseOverGroundFact = Fact(0, QStringLiteral("courseOverGround"), FactMetaData::valueTypeDouble);
     Fact _velFact = Fact(0, QStringLiteral("vel"), FactMetaData::valueTypeDouble);
     Fact _yawFact = Fact(0, QStringLiteral("yaw"), FactMetaData::valueTypeDouble);

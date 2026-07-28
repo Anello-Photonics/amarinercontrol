@@ -33,6 +33,20 @@
     "decimalPlaces":    1
 },
 {
+    "name":             "eph",
+    "shortDesc": "Horizontal Position Error",
+    "type":             "double",
+    "decimalPlaces":    2,
+    "units":            "m"
+},
+{
+    "name":             "epv",
+    "shortDesc": "Vertical Position Error",
+    "type":             "double",
+    "decimalPlaces":    2,
+    "units":            "m"
+},
+{
     "name":             "courseOverGround",
     "shortDesc": "Course Over Ground",
     "type":             "double",

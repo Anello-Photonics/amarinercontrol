@@ -21,6 +21,7 @@ AnalyzePage {
     id: logDownloadPage
     pageComponent: pageComponent
     pageDescription: qsTr("Log Download allows you to download binary log files from your vehicle. Click Refresh to get list of available logs.")
+    readonly property bool _showLogGroupEraseControls: false
 
     Component {
         id: pageComponent
@@ -179,11 +180,13 @@ AnalyzePage {
 
                 QGCLabel {
                     Layout.fillWidth: true
+                    visible: logDownloadPage._showLogGroupEraseControls
                     text: qsTr("Log group")
                 }
 
                 RowLayout {
                     Layout.fillWidth: true
+                    visible: logDownloadPage._showLogGroupEraseControls
 
                     QGCComboBox {
                         id: logGroupCombo
@@ -191,17 +194,17 @@ AnalyzePage {
                         sizeToContents: true
                         visible: LogDownloadController.logFolders.length > 0
                         enabled: !LogDownloadController.downloadingLogs
-                        onActivated: (index) => { logGroupField.text = textAt(index) }
                     }
                 }
 
                 QGCButton {
                     Layout.fillWidth: true
-                    enabled: !LogDownloadController.downloadingLogs && logGroupField.text.trim() !== ""
+                    visible: logDownloadPage._showLogGroupEraseControls
+                    enabled: logDownloadPage._showLogGroupEraseControls && !LogDownloadController.downloadingLogs && logGroupCombo.currentText.trim() !== ""
                     text: qsTr("Erase Group")
 
                     onClicked: {
-                        var logGroup = logGroupField.text.trim()
+                        var logGroup = logGroupCombo.currentText.trim()
                         if (logGroup === "") {
                             mainWindow.showMessageDialog(qsTr("Delete Log Group"), qsTr("You must enter or select a log group to erase."))
                             return

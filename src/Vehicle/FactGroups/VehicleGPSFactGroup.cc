@@ -21,6 +21,8 @@ VehicleGPSFactGroup::VehicleGPSFactGroup(QObject *parent)
     _addFact(&_mgrsFact);
     _addFact(&_hdopFact);
     _addFact(&_vdopFact);
+    _addFact(&_ephFact);
+    _addFact(&_epvFact);
     _addFact(&_courseOverGroundFact);
     _addFact(&_velFact);
     _addFact(&_yawFact);
@@ -32,6 +34,8 @@ VehicleGPSFactGroup::VehicleGPSFactGroup(QObject *parent)
     _mgrsFact.setRawValue("");
     _hdopFact.setRawValue(std::numeric_limits<float>::quiet_NaN());
     _vdopFact.setRawValue(std::numeric_limits<float>::quiet_NaN());
+    _ephFact.setRawValue(std::numeric_limits<float>::quiet_NaN());
+    _epvFact.setRawValue(std::numeric_limits<float>::quiet_NaN());
     _courseOverGroundFact.setRawValue(std::numeric_limits<float>::quiet_NaN());
     _velFact.setRawValue(std::numeric_limits<float>::quiet_NaN());
     _yawFact.setRawValue(std::numeric_limits<int16_t>::quiet_NaN());
@@ -65,8 +69,11 @@ void VehicleGPSFactGroup::_handleGpsRawInt(const mavlink_message_t &message)
     lon()->setRawValue(gpsRawInt.lon * 1e-7);
     mgrs()->setRawValue(QGCGeo::convertGeoToMGRS(QGeoCoordinate(gpsRawInt.lat * 1e-7, gpsRawInt.lon * 1e-7)));
     count()->setRawValue((gpsRawInt.satellites_visible == 255) ? 0 : gpsRawInt.satellites_visible);
-    hdop()->setRawValue((gpsRawInt.eph == UINT16_MAX) ? qQNaN() : (gpsRawInt.eph / 100.0));
-    vdop()->setRawValue((gpsRawInt.epv == UINT16_MAX) ? qQNaN() : (gpsRawInt.epv / 100.0));
+    // PX4 maps sensor_gps.hdop/vdop to h_acc/v_acc in millimeters.
+    hdop()->setRawValue((gpsRawInt.h_acc == UINT32_MAX) ? qQNaN() : (gpsRawInt.h_acc / 1000.0));
+    vdop()->setRawValue((gpsRawInt.v_acc == UINT32_MAX) ? qQNaN() : (gpsRawInt.v_acc / 1000.0));
+    eph()->setRawValue((gpsRawInt.eph == UINT16_MAX) ? qQNaN() : (gpsRawInt.eph / 100.0));
+    epv()->setRawValue((gpsRawInt.epv == UINT16_MAX) ? qQNaN() : (gpsRawInt.epv / 100.0));
     courseOverGround()->setRawValue((gpsRawInt.cog == UINT16_MAX) ? qQNaN() : (gpsRawInt.cog / 100.0));
     vel()->setRawValue((gpsRawInt.vel == UINT16_MAX) ? qQNaN() : (gpsRawInt.vel / 100.0));
     yaw()->setRawValue((gpsRawInt.yaw == UINT16_MAX) ? qQNaN() : (gpsRawInt.yaw / 100.0));
@@ -97,8 +104,8 @@ void VehicleGPSFactGroup::_handleHighLatency2(const mavlink_message_t &message)
     lon()->setRawValue(highLatency2.longitude * 1e-7);
     mgrs()->setRawValue(QGCGeo::convertGeoToMGRS(QGeoCoordinate(highLatency2.latitude * 1e-7, highLatency2.longitude * 1e-7, highLatency2.altitude)));
     count()->setRawValue(0);
-    hdop()->setRawValue((highLatency2.eph == UINT8_MAX) ? qQNaN() : (highLatency2.eph / 10.0));
-    vdop()->setRawValue((highLatency2.epv == UINT8_MAX) ? qQNaN() : (highLatency2.epv / 10.0));
+    eph()->setRawValue((highLatency2.eph == UINT8_MAX) ? qQNaN() : (highLatency2.eph / 10.0));
+    epv()->setRawValue((highLatency2.epv == UINT8_MAX) ? qQNaN() : (highLatency2.epv / 10.0));
 
     _setTelemetryAvailable(true);
 }

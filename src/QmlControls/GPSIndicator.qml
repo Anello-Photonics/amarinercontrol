@@ -33,8 +33,8 @@ Item {
     readonly property bool _gpsExternalSensorPresent: !!_activeVehicle && ((_activeVehicle.sensorsPresentBits & 2) !== 0)
     readonly property color _gpsExternalSensorColor: _gpsExternalSensorPresent ? "lightgreen" : "red"
 
-    function _formatDop(value) {
-        return isNaN(value) ? "N/A" : value.toFixed(1)
+    function _formatMeters(value) {
+        return isNaN(value) ? "N/A" : `${value.toFixed(2)} m`
     }
 
     function _pdopString(hdopValue, vdopValue) {
@@ -46,7 +46,7 @@ Item {
     }
 
     function _gpsInfoText(label, gpsGroup, satCount) {
-        return `${label}: SAT: ${satCount}. PDOP: ${_pdopString(gpsGroup.hdop.value, gpsGroup.vdop.value)}. H_ACC: ${_formatDop(gpsGroup.hdop.value)}. V_ACC: ${_formatDop(gpsGroup.vdop.value)}.`
+        return `${label}: SAT: ${satCount}. PDOP: ${_pdopString(gpsGroup.hdop.value, gpsGroup.vdop.value)}. EPH: ${_formatMeters(gpsGroup.eph.value)}. EPV: ${_formatMeters(gpsGroup.epv.value)}.`
     }
 
     Row {
