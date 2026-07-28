@@ -36,6 +36,8 @@ void VehicleGPSInputFactGroup::_handleGpsInput(const mavlink_message_t &message)
 
     static constexpr uint16_t ignoreHdop = 1u << 1;
     static constexpr uint16_t ignoreVdop = 1u << 2;
+    static constexpr uint16_t ignoreHorizontalAccuracy = 1u << 6;
+    static constexpr uint16_t ignoreVerticalAccuracy = 1u << 7;
 
     lat()->setRawValue(gpsInput.lat * 1e-7);
     lon()->setRawValue(gpsInput.lon * 1e-7);
@@ -43,6 +45,8 @@ void VehicleGPSInputFactGroup::_handleGpsInput(const mavlink_message_t &message)
     count()->setRawValue((gpsInput.satellites_visible == UINT8_MAX) ? 0 : gpsInput.satellites_visible);
     hdop()->setRawValue((gpsInput.ignore_flags & ignoreHdop) ? qQNaN() : gpsInput.hdop);
     vdop()->setRawValue((gpsInput.ignore_flags & ignoreVdop) ? qQNaN() : gpsInput.vdop);
+    eph()->setRawValue(((gpsInput.ignore_flags & ignoreHorizontalAccuracy) || std::isnan(gpsInput.horiz_accuracy)) ? qQNaN() : gpsInput.horiz_accuracy);
+    epv()->setRawValue(((gpsInput.ignore_flags & ignoreVerticalAccuracy) || std::isnan(gpsInput.vert_accuracy)) ? qQNaN() : gpsInput.vert_accuracy);
     vel()->setRawValue(std::isnan(gpsInput.vn) || std::isnan(gpsInput.ve) ? qQNaN() : std::sqrt((gpsInput.vn * gpsInput.vn) + (gpsInput.ve * gpsInput.ve)));
     yaw()->setRawValue((gpsInput.yaw == 0) ? qQNaN() : (gpsInput.yaw / 100.0));
     lock()->setRawValue(gpsInput.fix_type);
