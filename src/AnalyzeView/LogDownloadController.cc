@@ -29,6 +29,7 @@
 #include <QtCore/QRegularExpression>
 
 #include <algorithm>
+#include <limits>
 
 namespace {
 constexpr const char *kMavlinkShellLogRoot = "fs/microsd/log";
@@ -61,11 +62,8 @@ LogDownloadController::~LogDownloadController()
 void LogDownloadController::download(const QString &path)
 {
     const QString dir = path.isEmpty() ? SettingsManager::instance()->appSettings()->logSavePath() : path;
-    if (_transport == Transport::Ftp) {
-        _ftpDownloadToDirectory(dir);
-    } else {
-        _downloadToDirectory(dir);
-    }
+    _legacyDownloadActive = true;
+    _downloadToDirectory(dir);
 }
 
 void LogDownloadController::_downloadToDirectory(const QString &dir)
@@ -74,6 +72,7 @@ void LogDownloadController::_downloadToDirectory(const QString &dir)
 
     _downloadPath = dir;
     if (_downloadPath.isEmpty()) {
+        _legacyDownloadActive = false;
         return;
     }
 
@@ -204,7 +203,7 @@ void LogDownloadController::_logEntry(uint32_t time_utc, uint32_t size, uint16_t
 {
     Q_UNUSED(last_log_num);
 
-    if (!_requestingLogEntries || (_transport != Transport::Messages)) {
+    if (!_requestingLogEntries || (_transport != Transport::Messages) || _ftpOverlayLegacyRows) {
         return;
     }
 
@@ -263,6 +262,11 @@ void LogDownloadController::_receivedAllEntries()
     _logListElapsed.invalidate();
     _setListing(false);
     emit logFoldersChanged();
+
+    if (!_legacyDownloadActive && (_transport == Transport::Messages) && _vehicle && (_logEntriesModel->count() > 0)) {
+        _ftpOverlayLegacyRows = true;
+        _ftpStartListing();
+    }
 }
 
 void LogDownloadController::_abortLogList(const QString &message)
@@ -299,7 +303,7 @@ bool LogDownloadController::_entriesComplete() const
 
 void LogDownloadController::_logData(uint32_t ofs, uint16_t id, uint8_t count, const uint8_t *data)
 {
-    if (!_downloadingLogs || !_downloadData || (_transport != Transport::Messages)) {
+    if (!_downloadingLogs || !_downloadData) {
         return;
     }
 
@@ -438,6 +442,7 @@ void LogDownloadController::_receivedAllData()
         _requestLogData(_downloadData->ID, 0, _downloadData->chunk_table.size() * MAVLINK_MSG_LOG_DATA_FIELD_DATA_LEN);
         _timer->start(kTimeOutMs);
     } else {
+        _legacyDownloadActive = false;
         _resetSelection();
         _setDownloading(false);
     }
@@ -511,6 +516,8 @@ bool LogDownloadController::_prepareLogDownload()
 void LogDownloadController::refresh()
 {
     _logEntriesModel->clearAndDeleteContents();
+    _setTransport(Transport::Messages);
+    _ftpOverlayLegacyRows = false;
     _ftpDirsToList.clear();
     _ftpDownloadQueue.clear();
     _ftpDeleteQueue.clear();
@@ -521,13 +528,8 @@ void LogDownloadController::refresh()
     emit logFoldersChanged();
     emit selectionChanged();
 
-    if (_vehicle) {
-        _ftpStartListing();
-    } else {
-        _setTransport(Transport::Messages);
-        _logListElapsed.start();
-        _requestLogList(0, 0xffff);
-    }
+    _logListElapsed.start();
+    _requestLogList(0, 0xffff);
 }
 
 QString LogDownloadController::transport() const
@@ -668,11 +670,21 @@ uint LogDownloadController::_ftpProcessFileEntries(const QStringList &dirList, c
             ? (_ftpLogRoot + QStringLiteral("/") + fileName)
             : (_ftpLogRoot + QStringLiteral("/") + subdir + QStringLiteral("/") + fileName);
 
-        QGCLogEntry *const logEntry = new QGCLogEntry(_ftpLogIdCounter++, dateTime, fileSize, true);
-        logEntry->setFtpPath(ftpPath);
-        logEntry->setStatus(tr("Available"));
-        (void) connect(logEntry, &QGCLogEntry::selectedChanged, this, &LogDownloadController::selectionChanged);
-        _logEntriesModel->append(logEntry);
+        if (_ftpOverlayLegacyRows) {
+            QGCLogEntry *const logEntry = _findLogEntryForFtpFile(dateTime, fileSize);
+            if (!logEntry) {
+                qCDebug(LogDownloadControllerLog) << "ftp: could not match log file to legacy LOG_ENTRY row" << ftpPath << fileSize << dateTime;
+                continue;
+            }
+
+            logEntry->setFtpPath(ftpPath);
+        } else {
+            QGCLogEntry *const logEntry = new QGCLogEntry(_ftpLogIdCounter++, dateTime, fileSize, true);
+            logEntry->setFtpPath(ftpPath);
+            logEntry->setStatus(tr("Available"));
+            (void) connect(logEntry, &QGCLogEntry::selectedChanged, this, &LogDownloadController::selectionChanged);
+            _logEntriesModel->append(logEntry);
+        }
         logsFound++;
     }
 
@@ -702,6 +714,12 @@ void LogDownloadController::_ftpFinishListing()
 {
     _ftpListState = FtpListState::Idle;
     _logListElapsed.invalidate();
+    if (_ftpOverlayLegacyRows) {
+        _ftpOverlayLegacyRows = false;
+        if (!_anyLogEntryHasFtpPath()) {
+            _setTransport(Transport::Messages);
+        }
+    }
     _setListing(false);
     emit logFoldersChanged();
 }
@@ -712,6 +730,16 @@ void LogDownloadController::_ftpFallbackToMessages(const QString &reason)
 
     _ftpListState = FtpListState::Idle;
     _ftpDirsToList.clear();
+    if (_ftpOverlayLegacyRows) {
+        _ftpOverlayLegacyRows = false;
+        if (!_anyLogEntryHasFtpPath()) {
+            _setTransport(Transport::Messages);
+        }
+        _setListing(false);
+        emit logFoldersChanged();
+        return;
+    }
+
     _setTransport(Transport::Messages);
 
     _logEntriesModel->clearAndDeleteContents();
@@ -722,10 +750,67 @@ void LogDownloadController::_ftpFallbackToMessages(const QString &reason)
     _requestLogList(0, 0xffff);
 }
 
+bool LogDownloadController::_anyLogEntryHasFtpPath() const
+{
+    const int numLogs = _logEntriesModel->count();
+    for (int i = 0; i < numLogs; i++) {
+        const QGCLogEntry *const entry = _logEntriesModel->value<const QGCLogEntry*>(i);
+        if (entry && entry->hasFtpPath()) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+QGCLogEntry *LogDownloadController::_findLogEntryForFtpFile(const QDateTime &dateTime, uint fileSize) const
+{
+    QGCLogEntry *bestTimeMatch = nullptr;
+    qint64 bestTimeDelta = std::numeric_limits<qint64>::max();
+
+    const int numLogs = _logEntriesModel->count();
+    for (int i = 0; i < numLogs; i++) {
+        QGCLogEntry *const entry = _logEntriesModel->value<QGCLogEntry*>(i);
+        if (!entry || entry->hasFtpPath() || !entry->received() || (entry->size() != fileSize)) {
+            continue;
+        }
+
+        if (dateTime.isValid() && entry->time().isValid() && (entry->time().date().year() >= 2010)) {
+            const qint64 delta = qAbs(entry->time().toSecsSinceEpoch() - dateTime.toSecsSinceEpoch());
+            if (delta < bestTimeDelta) {
+                bestTimeDelta = delta;
+                bestTimeMatch = entry;
+            }
+        }
+    }
+
+    if (bestTimeMatch && (bestTimeDelta <= 2)) {
+        return bestTimeMatch;
+    }
+
+    QGCLogEntry *uniqueSizeMatch = nullptr;
+    int sizeMatches = 0;
+    for (int i = 0; i < numLogs; i++) {
+        QGCLogEntry *const entry = _logEntriesModel->value<QGCLogEntry*>(i);
+        if (!entry || entry->hasFtpPath() || !entry->received() || (entry->size() != fileSize)) {
+            continue;
+        }
+
+        uniqueSizeMatch = entry;
+        sizeMatches++;
+        if (sizeMatches > 1) {
+            return nullptr;
+        }
+    }
+
+    return uniqueSizeMatch;
+}
+
 void LogDownloadController::_ftpDownloadToDirectory(const QString &dir)
 {
     _downloadPath = dir;
     if (_downloadPath.isEmpty()) {
+        _legacyDownloadActive = false;
         return;
     }
 
@@ -848,7 +933,12 @@ QGCLogEntry *LogDownloadController::_getNextSelected() const
 
 void LogDownloadController::cancel()
 {
-    if (_transport == Transport::Ftp) {
+    if (_legacyDownloadActive || _downloadData) {
+        _requestLogEnd();
+        if (_transport == Transport::Messages) {
+            _receivedAllEntries();
+        }
+    } else if (_transport == Transport::Ftp) {
         if (_requestingLogEntries) {
             // AMC's FTP manager has no cancel-list operation. Ignore the eventual completion.
             _ftpListState = FtpListState::Idle;
@@ -883,6 +973,7 @@ void LogDownloadController::cancel()
         _downloadData.reset();
     }
 
+    _legacyDownloadActive = false;
     _resetSelection(true);
     _setDownloading(false);
 }

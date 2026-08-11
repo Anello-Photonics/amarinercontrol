@@ -97,6 +97,8 @@ private:
     void _ftpDeleteNext();
     void _ftpRemoveDirectoryCleanupNext();
     void _queueFtpDirectoryCleanup(const QString &filePath);
+    QGCLogEntry *_findLogEntryForFtpFile(const QDateTime &dateTime, uint fileSize) const;
+    bool _anyLogEntryHasFtpPath() const;
     void _setTransport(Transport transport);
     void _findMissingData();
     void _findMissingEntries();
@@ -121,6 +123,8 @@ private:
 
     bool _downloadingLogs = false;
     bool _requestingLogEntries = false;
+    bool _legacyDownloadActive = false;
+    bool _ftpOverlayLegacyRows = false;
     int _apmOffset = 0;
     int _retries = 0;
     QElapsedTimer _logListElapsed;
