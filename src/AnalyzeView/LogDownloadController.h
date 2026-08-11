@@ -12,6 +12,7 @@
 #include <QtCore/QElapsedTimer>
 #include <QtCore/QLoggingCategory>
 #include <QtCore/QObject>
+#include <QtCore/QQueue>
 #include <QtCore/QStringList>
 #include <QtQmlIntegration/QtQmlIntegration>
 
@@ -36,6 +37,7 @@ class LogDownloadController : public QObject
     Q_PROPERTY(bool               requestingList  READ _getRequestingList   NOTIFY requestingListChanged)
     Q_PROPERTY(bool               downloadingLogs READ _getDownloadingLogs  NOTIFY downloadingLogsChanged)
     Q_PROPERTY(QStringList        logFolders      READ logFolders           NOTIFY logFoldersChanged)
+    Q_PROPERTY(QString            transport       READ transport            NOTIFY transportChanged)
 
     friend class LogDownloadTest;
 
@@ -46,24 +48,35 @@ public:
     Q_INVOKABLE void refresh();
     Q_INVOKABLE void download(const QString &path = QString());
     Q_INVOKABLE void eraseAll();
+    Q_INVOKABLE void eraseSelected();
     Q_INVOKABLE void eraseFolder(const QString &folder);
     Q_INVOKABLE void eraseGroup(const QString &group);
     QStringList logFolders() const;
     Q_INVOKABLE void cancel();
+    QString transport() const;
 
 signals:
     void requestingListChanged();
     void downloadingLogsChanged();
     void selectionChanged();
     void logFoldersChanged();
+    void transportChanged();
 
 private slots:
     void _setActiveVehicle(Vehicle *vehicle);
     void _logEntry(uint32_t time_utc, uint32_t size, uint16_t id, uint16_t num_logs, uint16_t last_log_num);
     void _logData(uint32_t ofs, uint16_t id, uint8_t count, const uint8_t *data);
     void _processDownload();
+    void _ftpListDirComplete(const QStringList &dirList, const QString &errorMsg);
+    void _ftpDownloadComplete(const QString &file, const QString &errorMsg);
+    void _ftpDeleteComplete(const QString &file, const QString &errorMsg);
+    void _ftpRemoveDirectoryComplete(const QString &directory, const QString &errorMsg);
+    void _ftpCommandProgress(float value);
 
 private:
+    enum class Transport { Messages, Ftp };
+    enum class FtpListState { Idle, ListingRoot, ListingSubdir };
+
     QmlObjectListModel *_getModel() const { return _logEntriesModel; }
     bool _getRequestingList() const { return _requestingLogEntries; }
     bool _getDownloadingLogs() const { return _downloadingLogs; }
@@ -73,6 +86,18 @@ private:
     bool _logComplete() const;
     bool _prepareLogDownload();
     void _downloadToDirectory(const QString &dir);
+    void _ftpStartListing();
+    void _ftpListRoot();
+    void _ftpListNextSubdir();
+    uint _ftpProcessFileEntries(const QStringList &dirList, const QString &subdir);
+    void _ftpFinishListing();
+    void _ftpFallbackToMessages(const QString &reason = QString());
+    void _ftpDownloadToDirectory(const QString &dir);
+    void _ftpDownloadNext();
+    void _ftpDeleteNext();
+    void _ftpRemoveDirectoryCleanupNext();
+    void _queueFtpDirectoryCleanup(const QString &filePath);
+    void _setTransport(Transport transport);
     void _findMissingData();
     void _findMissingEntries();
     void _receivedAllData();
@@ -89,6 +114,7 @@ private:
     void _updateNTRIPPause();
 
     QGCLogEntry *_getNextSelected() const;
+    QString _makeUniqueDownloadFileName(const QString &fileName) const;
 
     QTimer *_timer = nullptr;
     QmlObjectListModel *_logEntriesModel = nullptr;
@@ -101,6 +127,18 @@ private:
     std::unique_ptr<LogDownloadData> _downloadData;
     QString _downloadPath;
     Vehicle *_vehicle = nullptr;
+    Transport _transport = Transport::Messages;
+    FtpListState _ftpListState = FtpListState::Idle;
+    bool _ftpTriedFallbackRoot = false;
+    bool _ftpDeleting = false;
+    uint _ftpLogIdCounter = 0;
+    QString _ftpLogRoot;
+    QStringList _ftpDirsToList;
+    QQueue<QGCLogEntry*> _ftpDownloadQueue;
+    QQueue<QGCLogEntry*> _ftpDeleteQueue;
+    QQueue<QString> _ftpRemoveDirectoryQueue;
+    QGCLogEntry *_ftpCurrentDownloadEntry = nullptr;
+    QGCLogEntry *_ftpCurrentDeleteEntry = nullptr;
 
     static constexpr uint32_t kTimeOutMs = 500;
     static constexpr uint32_t kGUIRateMs = 17; ///< 1000ms / 60fps

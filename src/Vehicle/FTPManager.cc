@@ -114,6 +114,70 @@ bool FTPManager::listDirectory(uint8_t fromCompId, const QString& fromURI)
     return true;
 }
 
+bool FTPManager::deleteFile(uint8_t fromCompId, const QString& fromURI)
+{
+    qCDebug(FTPManagerLog) << "delete file fromURI:" << fromURI << "fromCompId:" << fromCompId;
+
+    if (!_rgStateMachine.isEmpty()) {
+        qCDebug(FTPManagerLog) << "Cannot delete file. Already in another operation";
+        return false;
+    }
+
+    static const StateFunctions_t rgStateMachine[] = {
+        { &FTPManager::_deleteFileBegin,          &FTPManager::_deleteFileAckOrNak,      &FTPManager::_deleteFileTimeout },
+        { &FTPManager::_deleteCompleteNoError,    nullptr,                               nullptr },
+    };
+    for (size_t i=0; i<sizeof(rgStateMachine)/sizeof(rgStateMachine[0]); i++) {
+        _rgStateMachine.append(rgStateMachine[i]);
+    }
+
+    _deleteState.reset();
+
+    if (!_parseURI(fromCompId, fromURI, _deleteState.fullPathOnVehicle, _ftpCompId)) {
+        qCWarning(FTPManagerLog) << "_parseURI failed";
+        _rgStateMachine.clear();
+        return false;
+    }
+
+    qCDebug(FTPManagerLog) << "_deleteState.fullPathOnVehicle" << _deleteState.fullPathOnVehicle;
+
+    _startStateMachine();
+
+    return true;
+}
+
+bool FTPManager::removeDirectory(uint8_t fromCompId, const QString& fromURI)
+{
+    qCDebug(FTPManagerLog) << "remove directory fromURI:" << fromURI << "fromCompId:" << fromCompId;
+
+    if (!_rgStateMachine.isEmpty()) {
+        qCDebug(FTPManagerLog) << "Cannot remove directory. Already in another operation";
+        return false;
+    }
+
+    static const StateFunctions_t rgStateMachine[] = {
+        { &FTPManager::_removeDirectoryBegin,          &FTPManager::_removeDirectoryAckOrNak,      &FTPManager::_removeDirectoryTimeout },
+        { &FTPManager::_removeDirectoryCompleteNoError, nullptr,                                   nullptr },
+    };
+    for (size_t i=0; i<sizeof(rgStateMachine)/sizeof(rgStateMachine[0]); i++) {
+        _rgStateMachine.append(rgStateMachine[i]);
+    }
+
+    _removeDirectoryState.reset();
+
+    if (!_parseURI(fromCompId, fromURI, _removeDirectoryState.fullPathOnVehicle, _ftpCompId)) {
+        qCWarning(FTPManagerLog) << "_parseURI failed";
+        _rgStateMachine.clear();
+        return false;
+    }
+
+    qCDebug(FTPManagerLog) << "_removeDirectoryState.fullPathOnVehicle" << _removeDirectoryState.fullPathOnVehicle;
+
+    _startStateMachine();
+
+    return true;
+}
+
 void FTPManager::cancelDownload()
 {
     if (!_downloadState.inProgress()) {
@@ -559,6 +623,116 @@ void FTPManager::_listDirectoryTimeout(void)
         qCDebug(FTPManagerLog) << QString("_listDirectoryTimeout: retrying - retryCount(%1) offset(%2)").arg(_listDirectoryState.retryCount).arg(_listDirectoryState.expectedOffset);
         _listDirectoryWorker(false /* firstReqeust */);
     }
+}
+
+void FTPManager::_deleteFileBegin(void)
+{
+    MavlinkFTP::Request request{};
+    request.hdr.opcode = MavlinkFTP::kCmdRemoveFile;
+    _fillRequestDataWithString(&request, _deleteState.fullPathOnVehicle);
+    _sendRequestExpectAck(&request);
+}
+
+void FTPManager::_deleteFileAckOrNak(const MavlinkFTP::Request* ackOrNak)
+{
+    const MavlinkFTP::OpCode_t requestOpCode = static_cast<MavlinkFTP::OpCode_t>(ackOrNak->hdr.req_opcode);
+    if (requestOpCode != MavlinkFTP::kCmdRemoveFile) {
+        qCDebug(FTPManagerLog) << "_deleteFileAckOrNak: Disregarding due to incorrect requestOpCode" << MavlinkFTP::opCodeToString(requestOpCode);
+        return;
+    }
+    if (ackOrNak->hdr.seqNumber != _expectedIncomingSeqNumber) {
+        qCDebug(FTPManagerLog) << "_deleteFileAckOrNak: Disregarding due to incorrect sequence actual:expected" << ackOrNak->hdr.seqNumber << _expectedIncomingSeqNumber;
+        return;
+    }
+
+    _ackOrNakTimeoutTimer.stop();
+
+    if (ackOrNak->hdr.opcode == MavlinkFTP::kRspAck) {
+        qCDebug(FTPManagerLog) << "_deleteFileAckOrNak: Ack";
+        _advanceStateMachine();
+    } else if (ackOrNak->hdr.opcode == MavlinkFTP::kRspNak) {
+        qCDebug(FTPManagerLog) << "_deleteFileAckOrNak: Nak -" << _errorMsgFromNak(ackOrNak);
+        _deleteComplete(tr("Delete failed") + ": " + _errorMsgFromNak(ackOrNak));
+    }
+}
+
+void FTPManager::_deleteFileTimeout(void)
+{
+    if (++_deleteState.retryCount > _maxRetry) {
+        qCDebug(FTPManagerLog) << QString("_deleteFileTimeout retries exceeded");
+        _deleteComplete(tr("Delete failed"));
+    } else {
+        qCDebug(FTPManagerLog) << QString("_deleteFileTimeout: retrying - retryCount(%1)").arg(_deleteState.retryCount);
+        _deleteFileBegin();
+    }
+}
+
+void FTPManager::_deleteComplete(const QString& errorMsg)
+{
+    qCDebug(FTPManagerLog) << QString("_deleteComplete: errorMsg(%1)").arg(errorMsg);
+
+    const QString file = _deleteState.fullPathOnVehicle;
+    _ackOrNakTimeoutTimer.stop();
+    _rgStateMachine.clear();
+    _currentStateMachineIndex = -1;
+    _deleteState.reset();
+
+    emit deleteComplete(file, errorMsg);
+}
+
+void FTPManager::_removeDirectoryBegin(void)
+{
+    MavlinkFTP::Request request{};
+    request.hdr.opcode = MavlinkFTP::kCmdRemoveDirectory;
+    _fillRequestDataWithString(&request, _removeDirectoryState.fullPathOnVehicle);
+    _sendRequestExpectAck(&request);
+}
+
+void FTPManager::_removeDirectoryAckOrNak(const MavlinkFTP::Request* ackOrNak)
+{
+    const MavlinkFTP::OpCode_t requestOpCode = static_cast<MavlinkFTP::OpCode_t>(ackOrNak->hdr.req_opcode);
+    if (requestOpCode != MavlinkFTP::kCmdRemoveDirectory) {
+        qCDebug(FTPManagerLog) << "_removeDirectoryAckOrNak: Disregarding due to incorrect requestOpCode" << MavlinkFTP::opCodeToString(requestOpCode);
+        return;
+    }
+    if (ackOrNak->hdr.seqNumber != _expectedIncomingSeqNumber) {
+        qCDebug(FTPManagerLog) << "_removeDirectoryAckOrNak: Disregarding due to incorrect sequence actual:expected" << ackOrNak->hdr.seqNumber << _expectedIncomingSeqNumber;
+        return;
+    }
+
+    _ackOrNakTimeoutTimer.stop();
+
+    if (ackOrNak->hdr.opcode == MavlinkFTP::kRspAck) {
+        qCDebug(FTPManagerLog) << "_removeDirectoryAckOrNak: Ack";
+        _advanceStateMachine();
+    } else if (ackOrNak->hdr.opcode == MavlinkFTP::kRspNak) {
+        qCDebug(FTPManagerLog) << "_removeDirectoryAckOrNak: Nak -" << _errorMsgFromNak(ackOrNak);
+        _removeDirectoryComplete(tr("Remove directory failed") + ": " + _errorMsgFromNak(ackOrNak));
+    }
+}
+
+void FTPManager::_removeDirectoryTimeout(void)
+{
+    if (++_removeDirectoryState.retryCount > _maxRetry) {
+        qCDebug(FTPManagerLog) << QString("_removeDirectoryTimeout retries exceeded");
+        _removeDirectoryComplete(tr("Remove directory failed"));
+    } else {
+        qCDebug(FTPManagerLog) << QString("_removeDirectoryTimeout: retrying - retryCount(%1)").arg(_removeDirectoryState.retryCount);
+        _removeDirectoryBegin();
+    }
+}
+
+void FTPManager::_removeDirectoryComplete(const QString& errorMsg)
+{
+    qCDebug(FTPManagerLog) << QString("_removeDirectoryComplete: errorMsg(%1)").arg(errorMsg);
+
+    const QString directory = _removeDirectoryState.fullPathOnVehicle;
+    _ackOrNakTimeoutTimer.stop();
+    _rgStateMachine.clear();
+    _currentStateMachineIndex = -1;
+    _removeDirectoryState.reset();
+
+    emit removeDirectoryComplete(directory, errorMsg);
 }
 
 void FTPManager::_fillMissingBlocksWorker(bool firstRequest)

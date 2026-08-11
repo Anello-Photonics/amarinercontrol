@@ -52,6 +52,20 @@ public:
     /// Signals listDirectoryComplete
     bool listDirectory(uint8_t fromCompId, const QString& fromURI);
 
+    /// Deletes a file on the vehicle.
+    ///     @param fromCompId Component id of the component to delete from. If fromCompId is MAV_COMP_ID_ALL, then MAV_COMP_ID_AUTOPILOT1 is used.
+    ///     @param fromURI    File path to delete on the component. May include mftp:// scheme and optional component id selector.
+    /// @return true: process has started, false: error
+    /// Signals deleteComplete
+    bool deleteFile(uint8_t fromCompId, const QString& fromURI);
+
+    /// Removes an empty directory on the vehicle.
+    ///     @param fromCompId Component id of the component to delete from. If fromCompId is MAV_COMP_ID_ALL, then MAV_COMP_ID_AUTOPILOT1 is used.
+    ///     @param fromURI    Directory path to remove on the component. May include mftp:// scheme and optional component id selector.
+    /// @return true: process has started, false: error
+    /// Signals removeDirectoryComplete
+    bool removeDirectory(uint8_t fromCompId, const QString& fromURI);
+
     /// Cancel the download operation
     /// This will emit downloadComplete() when done, and if there's currently a download in progress
     void cancelDownload();
@@ -61,6 +75,8 @@ public:
 signals:
     void downloadComplete       (const QString& file, const QString& errorMsg);
     void listDirectoryComplete  (const QStringList& dirList, const QString& errorMsg);
+    void deleteComplete         (const QString& file, const QString& errorMsg);
+    void removeDirectoryComplete(const QString& directory, const QString& errorMsg);
 
     /// Signalled during a lengthy command to show progress
     ///     @param value Amount of progress: 0.0 = none, 1.0 = complete
@@ -131,12 +147,32 @@ private:
         }
     };
 
+    struct RemovePathState_t {
+        QString     fullPathOnVehicle;      ///< Fully qualified path to remove on vehicle
+        int         retryCount;
+
+        void reset() {
+            fullPathOnVehicle.clear();
+            retryCount = 0;
+        }
+    };
+
     void    _mavlinkMessageReceived     (const mavlink_message_t& message);
     void    _startStateMachine          (void);
     void    _advanceStateMachine        (void);
     void    _listDirectoryBegin         (void);
     void    _listDirectoryAckOrNak      (const MavlinkFTP::Request* ackOrNak);
     void    _listDirectoryTimeout       (void);
+    void    _deleteFileBegin            (void);
+    void    _deleteFileAckOrNak         (const MavlinkFTP::Request* ackOrNak);
+    void    _deleteFileTimeout          (void);
+    void    _deleteCompleteNoError      (void) { _deleteComplete(QString()); }
+    void    _deleteComplete             (const QString& errorMsg);
+    void    _removeDirectoryBegin       (void);
+    void    _removeDirectoryAckOrNak    (const MavlinkFTP::Request* ackOrNak);
+    void    _removeDirectoryTimeout     (void);
+    void    _removeDirectoryCompleteNoError(void) { _removeDirectoryComplete(QString()); }
+    void    _removeDirectoryComplete    (const QString& errorMsg);
     void    _openFileROBegin            (void);
     void    _openFileROAckOrNak         (const MavlinkFTP::Request* ackOrNak);
     void    _openFileROTimeout          (void);
@@ -172,6 +208,8 @@ private:
     QList<StateFunctions_t> _rgStateMachine;
     DownloadState_t         _downloadState;
     ListDirectoryState_t    _listDirectoryState;
+    RemovePathState_t       _deleteState;
+    RemovePathState_t       _removeDirectoryState;
     QTimer                  _ackOrNakTimeoutTimer;
     int                     _currentStateMachineIndex   = -1;
     uint16_t                _expectedIncomingSeqNumber  = 0;

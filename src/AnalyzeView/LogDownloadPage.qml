@@ -169,6 +169,35 @@ AnalyzePage {
                 QGCButton {
                     Layout.fillWidth: true
                     enabled: !LogDownloadController.downloadingLogs
+                    visible: LogDownloadController.transport === "ftp"
+                    text: qsTr("Erase Selected")
+
+                    onClicked: {
+                        var logsSelected = false
+                        for (var i = 0; i < LogDownloadController.model.count; i++) {
+                            if (LogDownloadController.model.get(i).selected) {
+                                logsSelected = true
+                                break
+                            }
+                        }
+
+                        if (!logsSelected) {
+                            mainWindow.showMessageDialog(qsTr("Delete Selected Log Files"), qsTr("You must select at least one log file to erase."))
+                            return
+                        }
+
+                        mainWindow.showMessageDialog(
+                            qsTr("Delete Selected Log Files"),
+                            qsTr("The selected log files will be erased permanently. Empty parent log folders will be cleaned up when possible. Is this really what you want?"),
+                            Dialog.Yes | Dialog.No,
+                            function() { LogDownloadController.eraseSelected() }
+                        )
+                    }
+                }
+
+                QGCButton {
+                    Layout.fillWidth: true
+                    enabled: !LogDownloadController.downloadingLogs
                     text: qsTr("Erase All")
                     onClicked: mainWindow.showMessageDialog(
                         qsTr("Delete All Log Files"),

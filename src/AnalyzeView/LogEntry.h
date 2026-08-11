@@ -69,6 +69,7 @@ class QGCLogEntry : public QObject
     Q_PROPERTY(bool         received    READ received                       NOTIFY receivedChanged)
     Q_PROPERTY(bool         selected    READ selected   WRITE setSelected   NOTIFY selectedChanged)
     Q_PROPERTY(QString      status      READ status                         NOTIFY statusChanged)
+    Q_PROPERTY(QString      ftpPath     READ ftpPath                        NOTIFY ftpPathChanged)
 
 public:
     explicit QGCLogEntry(uint logId, const QDateTime &dateTime = QDateTime(), uint logSize = 0, bool received = false, QObject *parent = nullptr);
@@ -81,6 +82,8 @@ public:
     bool received() const { return _received; }
     bool selected() const { return _selected; }
     QString status() const { return _status; }
+    QString ftpPath() const { return _ftpPath; }
+    bool hasFtpPath() const { return !_ftpPath.isEmpty(); }
 
     void setId(uint id) { if (id != _logID) { _logID = id; emit idChanged(); } }
     void setSize(uint size) { if (size != _logSize) { _logSize = size; emit sizeChanged(); } }
@@ -88,6 +91,7 @@ public:
     void setReceived(bool rec) { if (rec != _received) { _received = rec; emit receivedChanged(); } }
     void setSelected(bool sel) { if (sel != _selected) { _selected = sel; emit selectedChanged(); } }
     void setStatus(const QString &stat) { if (stat != _status) { _status = stat; emit statusChanged(); } }
+    void setFtpPath(const QString &path) { if (path != _ftpPath) { _ftpPath = path; emit ftpPathChanged(); } }
 
 signals:
     void idChanged();
@@ -96,6 +100,7 @@ signals:
     void receivedChanged();
     void selectedChanged();
     void statusChanged();
+    void ftpPathChanged();
 
 private:
     uint _logID = 0;
@@ -104,4 +109,5 @@ private:
     bool _received = false;
     bool _selected = false;
     QString _status = QStringLiteral("Pending");
+    QString _ftpPath;
 };
