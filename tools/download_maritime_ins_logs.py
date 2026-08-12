@@ -363,7 +363,8 @@ class MavlinkLogDownloader:
                 completed = True
 
         finally:
-            self._request_log_end()
+            if not completed:
+                self._request_log_end()
             sys.stdout.write("\n")
             sys.stdout.flush()
             if not completed and output_path.exists():
@@ -733,6 +734,12 @@ def build_arg_parser() -> argparse.ArgumentParser:
             "request window. Lower is faster; raise it if packets arrive in uneven bursts."
         ),
     )
+    parser.add_argument(
+        "--inter-log-delay",
+        type=float,
+        default=0.0,
+        help="Seconds to wait between sequential log downloads; default is 0",
+    )
     parser.add_argument("--quiet", action="store_true", help="Reduce status output")
     return parser
 
@@ -759,6 +766,8 @@ def main(argv: list[str]) -> int:
         raise SystemExit("--data-timeout must be > 0")
     if args.burst_idle_timeout <= 0:
         raise SystemExit("--burst-idle-timeout must be > 0")
+    if args.inter_log_delay < 0:
+        raise SystemExit("--inter-log-delay must be >= 0")
 
     client = MavlinkLogDownloader(
         connection_string=args.connect,
@@ -788,7 +797,10 @@ def main(argv: list[str]) -> int:
 
     extension = client.default_extension(args.extension)
     downloaded: list[Path] = []
-    for entry in logs_to_download:
+    for index, entry in enumerate(logs_to_download):
+        if index > 0 and args.inter_log_delay > 0:
+            time.sleep(args.inter_log_delay)
+
         downloaded.append(
             client.download_log(
                 entry=entry,
