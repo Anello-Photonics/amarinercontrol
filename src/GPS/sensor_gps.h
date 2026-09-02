@@ -80,11 +80,19 @@ struct sensor_gps_s
 	float rtcm_injection_rate;
 	uint8_t selected_rtcm_instance;
 
-	bool rtcm_crc_failed;
+	static constexpr uint8_t CORRECTIONS_PROTOCOL_UNKNOWN = 0;
+	static constexpr uint8_t CORRECTIONS_PROTOCOL_RTCM3 = 1;
+	static constexpr uint8_t CORRECTIONS_PROTOCOL_SPARTN = 2;
+	static constexpr uint8_t CORRECTIONS_PROTOCOL_PMP = 3;
+	static constexpr uint8_t CORRECTIONS_PROTOCOL_QZSS_L6 = 4;
+	static constexpr uint8_t CORRECTIONS_PROTOCOL_HAS = 5;
+	uint8_t corrections_protocol;
 
-	static constexpr uint8_t RTCM_MSG_USED_UNKNOWN = 0;
-	static constexpr uint8_t RTCM_MSG_USED_NOT_USED = 1;
-	static constexpr uint8_t RTCM_MSG_USED_USED = 2;
-	uint8_t rtcm_msg_used;
+	bool corrections_crc_failed;
+
+	static constexpr uint8_t CORRECTIONS_MSG_USED_UNKNOWN = 0;
+	static constexpr uint8_t CORRECTIONS_MSG_USED_NOT_USED = 1;
+	static constexpr uint8_t CORRECTIONS_MSG_USED_USED = 2;
+	uint8_t corrections_msg_used;
 };
 Q_DECLARE_METATYPE(sensor_gps_s);
