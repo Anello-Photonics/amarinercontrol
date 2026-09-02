@@ -31,7 +31,8 @@ CPMAddPackage(
     NAME px4-gpsdrivers
     GITHUB_REPOSITORY PX4/PX4-GPSDrivers
     # Keep the external driver API reproducible and in sync with sensor_gps_s.
-    GIT_TAG ace289105774a9d05d40a1d89798051a4e2937e7
+    GIT_TAG cf1356c041cfff44ba92cd217fb60292ff4ee456
+    PATCHES px4-gpsdrivers-msvc-packed.patch
     SOURCE_SUBDIR src
 )
 
