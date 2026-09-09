@@ -15,6 +15,8 @@
 #include <QtQmlIntegration/QtQmlIntegration>
 
 #include <limits>
+#include <QtCore/QVariantMap>
+#include "NmeaReceiveTracker.h"
 
 #include "LinkConfiguration.h"
 #include "LinkInterface.h"
@@ -57,6 +59,7 @@ public:
     static LinkManager *instance();
 
     void init();
+    Q_INVOKABLE QVariantMap nmeaReceiveStatus() const;
 
     /// Create/Edit Link Configuration
     Q_INVOKABLE LinkConfiguration *createConfiguration(int type, const QString &name);
@@ -70,6 +73,8 @@ public:
     Q_INVOKABLE void createMavlinkForwardingSupportLink();
     /// Called to signal app shutdown. Disconnects all links while turning off auto-connect.
     Q_INVOKABLE void shutdown();
+    // Returns an error message, or an empty string when queued for transmission.
+    Q_INVOKABLE QString sendNmeaSentence(const QString &sentence, bool calculateChecksum, const QString &udpAddress, int udpPort);
     Q_INVOKABLE LogReplayLink *startLogReplay(const QString &logFile);
 
     QList<SharedLinkInterfacePtr> links() { return _rgLinks; }
@@ -142,6 +147,7 @@ private:
     void _addZeroConfAutoConnectLink();
 #endif
 
+    NmeaReceiveTracker _nmeaReceive;
     QTimer *_portListTimer = nullptr;
     QmlObjectListModel *_qmlConfigurations = nullptr;
     AutoConnectSettings *_autoConnectSettings = nullptr;

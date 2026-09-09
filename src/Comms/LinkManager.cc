@@ -51,9 +51,41 @@
 
 #include <QtCore/QApplicationStatic>
 #include <QtCore/QTimer>
+#include <functional>
 
 QGC_LOGGING_CATEGORY(LinkManagerLog, "qgc.comms.linkmanager")
 QGC_LOGGING_CATEGORY(LinkManagerVerboseLog, "qgc.comms.linkmanager:verbose")
+
+#ifndef QGC_NO_SERIAL_LINK
+// Read the serial stream once, then expose the same bytes to the position parser.
+class NmeaSerialSource : public QIODevice
+{
+public:
+    NmeaSerialSource(QSerialPort *port, std::function<void(const QByteArray &)> observe)
+        : QIODevice(port) {
+        open(QIODevice::ReadOnly);
+        connect(port, &QSerialPort::readyRead, this, [this, port, observe]() {
+            const QByteArray bytes = port->readAll();
+            _buffer.append(bytes);
+            observe(bytes);
+            emit readyRead();
+        });
+    }
+    bool isSequential() const override { return true; }
+    bool canReadLine() const override { return _buffer.contains('\n') || QIODevice::canReadLine(); }
+    qint64 bytesAvailable() const override { return _buffer.size() + QIODevice::bytesAvailable(); }
+protected:
+    qint64 readData(char *data, qint64 maxSize) override {
+        const qint64 size = qMin<qint64>(maxSize, _buffer.size());
+        std::copy_n(_buffer.constData(), size, data);
+        _buffer.remove(0, size);
+        return size;
+    }
+    qint64 writeData(const char *, qint64) override { return -1; }
+private:
+    QByteArray _buffer;
+};
+#endif
 
 Q_APPLICATION_STATIC(LinkManager, _linkManagerInstance);
 
@@ -87,11 +119,44 @@ LinkManager *LinkManager::instance()
 void LinkManager::init()
 {
     _autoConnectSettings = SettingsManager::instance()->autoConnectSettings();
+    for (Fact *fact : { _autoConnectSettings->autoConnectNmeaPort(), _autoConnectSettings->autoConnectNmeaBaud(), _autoConnectSettings->nmeaUdpPort() }) {
+        connect(fact, &Fact::rawValueChanged, this, [this]() { _nmeaReceive.reset(); });
+    }
+#ifndef QGC_NO_SERIAL_LINK
+    connect(_nmeaSocket, &UdpIODevice::datagramReceived, this, [this](const QByteArray &bytes) {
+        if (_autoConnectSettings->autoConnectNmeaPort()->cookedValueString() == "UDP Port" &&
+            _nmeaSocket->localPort() == _autoConnectSettings->nmeaUdpPort()->rawValue().toUInt()) _nmeaReceive.feed(bytes);
+    });
+#endif
 
     if (!qgcApp()->runningUnitTests()) {
         (void) connect(_portListTimer, &QTimer::timeout, this, &LinkManager::_updateAutoConnectLinks);
         _portListTimer->start(_autoconnectUpdateTimerMSecs); // timeout must be long enough to get past bootloader on second pass
     }
+}
+
+QVariantMap LinkManager::nmeaReceiveStatus() const
+{
+    QString status = tr("NMEA connection disabled");
+    bool receiving = false;
+#ifndef QGC_NO_SERIAL_LINK
+    if (_autoConnectSettings) {
+        const QString port = _autoConnectSettings->autoConnectNmeaPort()->cookedValueString();
+        if (!port.isEmpty() && port != "Disabled") {
+            const bool open = port == "UDP Port"
+                ? (_nmeaSocket->state() == UdpIODevice::BoundState && _nmeaSocket->localPort() == _autoConnectSettings->nmeaUdpPort()->rawValue().toUInt())
+                : (_nmeaPort && _nmeaPort->isOpen() && _nmeaDeviceName == port && _nmeaBaud == _autoConnectSettings->autoConnectNmeaBaud()->rawValue().toUInt());
+            receiving = open && !_connectionsSuspended && _nmeaReceive.receiving();
+            if (_connectionsSuspended) status = tr("NMEA connection suspended");
+            else if (!open) status = tr("NMEA connection not open");
+            else if (receiving) status = tr("Receiving valid NMEA messages");
+            else if (_nmeaReceive.everValid()) status = tr("No valid NMEA messages in the last 5 seconds");
+            else if (_nmeaReceive.receivedBytes()) status = tr("Data received, but no valid NMEA messages");
+            else status = tr("Waiting for NMEA messages");
+        }
+    }
+#endif
+    return {{"text", status}, {"receiving", receiving}, {"count", QVariant::fromValue(_nmeaReceive.count())}};
 }
 
 QmlObjectListModel *LinkManager::_qmlLinkConfigurations()
@@ -496,10 +561,20 @@ void LinkManager::_updateAutoConnectLinks()
     _addZeroConfAutoConnectLink();
 #endif
 
+#ifndef QGC_NO_SERIAL_LINK
+    if (_nmeaPort && _nmeaDeviceName != _autoConnectSettings->autoConnectNmeaPort()->cookedValueString()) {
+        _nmeaPort->close();
+        delete _nmeaPort;
+        _nmeaPort = nullptr;
+        _nmeaDeviceName.clear();
+    }
+#endif
+
     // check to see if nmea gps is configured for UDP input, if so, set it up to connect
     if (_autoConnectSettings->autoConnectNmeaPort()->cookedValueString() == "UDP Port") {
         if ((_nmeaSocket->localPort() != _autoConnectSettings->nmeaUdpPort()->rawValue().toUInt()) || (_nmeaSocket->state() != UdpIODevice::BoundState)) {
             qCDebug(LinkManagerLog) << "Changing port for UDP NMEA stream";
+            _nmeaReceive.reset();
             _nmeaSocket->close();
             _nmeaSocket->bind(QHostAddress::AnyIPv4, _autoConnectSettings->nmeaUdpPort()->rawValue().toUInt());
             QGCPositionManager::instance()->setNmeaSourceDevice(_nmeaSocket);
@@ -518,6 +593,72 @@ void LinkManager::_updateAutoConnectLinks()
 
 #ifndef QGC_NO_SERIAL_LINK
     _addSerialAutoConnectLink();
+#endif
+}
+
+QString LinkManager::sendNmeaSentence(const QString &sentence, bool calculateChecksum, const QString &udpAddress, int udpPort)
+{
+#ifndef QGC_NO_SERIAL_LINK
+    QString text = sentence.trimmed();
+    if (text.size() < 2 || (text.front() != '$' && text.front() != '!')) {
+        return tr("Enter one NMEA sentence beginning with $ or !.");
+    }
+    for (const QChar ch : text) {
+        if (ch.unicode() < 0x20 || ch.unicode() > 0x7e) {
+            return tr("The sentence must contain printable ASCII only, with no embedded line endings.");
+        }
+    }
+    const qsizetype star = text.indexOf('*');
+    const QString body = star < 0 ? text : text.left(star);
+    if (body.size() < 2 || body.mid(1).contains('$') || body.mid(1).contains('!')) {
+        return tr("Enter only one NMEA sentence.");
+    }
+    quint8 checksum = 0;
+    const QByteArray bodyBytes = body.toLatin1();
+    for (qsizetype i = 1; i < bodyBytes.size(); ++i) {
+        checksum ^= static_cast<quint8>(bodyBytes.at(i));
+    }
+    if (calculateChecksum) {
+        text = body + QStringLiteral("*%1").arg(checksum, 2, 16, QLatin1Char('0')).toUpper();
+    } else if (star >= 0) {
+        bool ok = false;
+        const uint supplied = text.mid(star + 1).toUInt(&ok, 16);
+        if (!ok || text.size() - star != 3 || supplied != checksum) {
+            return tr("Invalid NMEA checksum. Correct it or enable checksum calculation.");
+        }
+    }
+    const QByteArray bytes = text.toLatin1() + "\r\n";
+    const QString configuredPort = _autoConnectSettings->autoConnectNmeaPort()->cookedValueString();
+    if (_connectionsSuspended) {
+        return tr("Connections are suspended.");
+    }
+    if (configuredPort == "UDP Port") {
+        QHostAddress address;
+        if (!address.setAddress(udpAddress.trimmed()) || address.isNull() || udpPort < 1 || udpPort > 65535) {
+            return tr("Enter a valid destination IP address and UDP port (1-65535).");
+        }
+        if (_nmeaSocket->state() != UdpIODevice::BoundState ||
+            _nmeaSocket->localPort() != _autoConnectSettings->nmeaUdpPort()->rawValue().toUInt()) {
+            return tr("The NMEA UDP connection is not ready.");
+        }
+        if (_nmeaSocket->writeDatagram(bytes, address, static_cast<quint16>(udpPort)) != bytes.size()) {
+            return tr("NMEA UDP send failed: %1").arg(_nmeaSocket->errorString());
+        }
+    } else {
+        if (!_nmeaPort || configuredPort != _nmeaDeviceName || !_nmeaPort->isWritable()) {
+            return tr("The selected NMEA serial device is not connected.");
+        }
+        if (_nmeaPort->write(bytes) != bytes.size()) {
+            return tr("NMEA serial send failed: %1").arg(_nmeaPort->errorString());
+        }
+    }
+    return {};
+#else
+    Q_UNUSED(sentence)
+    Q_UNUSED(calculateChecksum)
+    Q_UNUSED(udpAddress)
+    Q_UNUSED(udpPort)
+    return tr("NMEA connections are unavailable in this build.");
 #endif
 }
 
@@ -834,19 +975,34 @@ void LinkManager::_addSerialAutoConnectLink()
 
         // check to see if nmea gps is configured for current Serial port, if so, set it up to connect
         if (portInfo.systemLocation().trimmed() == _autoConnectSettings->autoConnectNmeaPort()->cookedValueString()) {
-            if (portInfo.systemLocation().trimmed() != _nmeaDeviceName) {
-                _nmeaDeviceName = portInfo.systemLocation().trimmed();
-                qCDebug(LinkManagerLog) << "Configuring nmea port" << _nmeaDeviceName;
+            if (portInfo.systemLocation().trimmed() != _nmeaDeviceName || !_nmeaPort || !_nmeaPort->isOpen()) {
+                qCDebug(LinkManagerLog) << "Configuring nmea port" << portInfo.systemLocation();
                 QSerialPort* newPort = new QSerialPort(portInfo, this);
+                _nmeaReceive.reset();
                 _nmeaBaud = _autoConnectSettings->autoConnectNmeaBaud()->cookedValue().toUInt();
                 newPort->setBaudRate(static_cast<qint32>(_nmeaBaud));
                 qCDebug(LinkManagerLog) << "Configuring nmea baudrate" << _nmeaBaud;
+                if (!newPort->open(QIODevice::ReadWrite)) {
+                    qCWarning(LinkManagerLog) << "Cannot open NMEA device:" << newPort->errorString();
+                    delete newPort;
+                    continue;
+                }
                 // This will stop polling old device if previously set
-                QGCPositionManager::instance()->setNmeaSourceDevice(newPort);
+                const QString deviceName = portInfo.systemLocation().trimmed();
+                auto *source = new NmeaSerialSource(newPort, [this, deviceName](const QByteArray &bytes) {
+                    if (_autoConnectSettings->autoConnectNmeaPort()->cookedValueString() == deviceName) _nmeaReceive.feed(bytes);
+                });
+                QGCPositionManager::instance()->setNmeaSourceDevice(source);
                 if (_nmeaPort) {
                     delete _nmeaPort;
                 }
+                connect(newPort, &QSerialPort::errorOccurred, newPort, [newPort](QSerialPort::SerialPortError error) {
+                    if (error == QSerialPort::ResourceError) {
+                        newPort->close();
+                    }
+                });
                 _nmeaPort = newPort;
+                _nmeaDeviceName = portInfo.systemLocation().trimmed();
             } else if (_autoConnectSettings->autoConnectNmeaBaud()->cookedValue().toUInt() != _nmeaBaud) {
                 _nmeaBaud = _autoConnectSettings->autoConnectNmeaBaud()->cookedValue().toUInt();
                 _nmeaPort->setBaudRate(static_cast<qint32>(_nmeaBaud));

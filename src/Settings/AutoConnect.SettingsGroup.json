@@ -81,7 +81,7 @@
     "name":             "nmeaUdpPort",
     "shortDesc": "Udp port to receive NMEA streams",
     "type":             "uint32",
-    "default":     14401
+    "default":     19550
 }
 ]
 }
