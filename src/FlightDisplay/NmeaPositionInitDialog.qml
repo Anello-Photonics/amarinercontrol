@@ -21,10 +21,56 @@ QGCPopupDialog {
         property string destination: "192.168.0.3"
         property string destinationPort: "19551"
     }
+    property Settings uncertaintySettings: Settings {
+        category: "NmeaPositionInitialization"
+        property alias horizontalUncertainty: horizontalAccuracyField.text
+        property alias verticalUncertainty: verticalAccuracyField.text
+    }
     readonly property string sentence: NmeaPositionInit.sentenceFromFields([
         utcField.text, latitudeField.text, longitudeField.text,
         altitudeField.text, horizontalAccuracyField.text, verticalAccuracyField.text
     ])
+
+    component UncertaintyInput: RowLayout {
+        id: editor
+        property alias text: valueField.text
+        property string fieldName
+        readonly property bool validValue: valueField.text.trim().length > 0 &&
+                                          isFinite(Number(valueField.text)) && Number(valueField.text) >= 0
+        spacing: ScreenTools.defaultFontPixelWidth / 2
+
+        function adjust(step) {
+            valueField.text = String(Math.max(0, Number(valueField.text) + step))
+        }
+
+        QGCTextField {
+            id: valueField
+            Layout.fillWidth: true
+            text: "20"
+            placeholderText: qsTr("Non-negative meters")
+        }
+        ColumnLayout {
+            spacing: 0
+            QGCButton {
+                text: "\u25b2"
+                Layout.preferredWidth: ScreenTools.defaultFontPixelWidth * 4
+                topPadding: 0
+                bottomPadding: 0
+                enabled: editor.validValue
+                Accessible.name: qsTr("Increase %1 by 1 meter").arg(editor.fieldName)
+                onClicked: editor.adjust(1)
+            }
+            QGCButton {
+                text: "\u25bc"
+                Layout.preferredWidth: ScreenTools.defaultFontPixelWidth * 4
+                topPadding: 0
+                bottomPadding: 0
+                enabled: editor.validValue && Number(valueField.text) > 0
+                Accessible.name: qsTr("Decrease %1 by 1 meter").arg(editor.fieldName)
+                onClicked: editor.adjust(-1)
+            }
+        }
+    }
 
     ColumnLayout {
         spacing: ScreenTools.defaultFontPixelHeight / 2
@@ -58,20 +104,21 @@ QGCPopupDialog {
             QGCLabel { text: qsTr("Altitude above MSL (m)") }
             QGCTextField {
                 id: altitudeField
+                text: "0"
                 Layout.fillWidth: true
                 placeholderText: qsTr("Altitude in meters")
             }
             QGCLabel { text: qsTr("Horizontal uncertainty (m)") }
-            QGCTextField {
+            UncertaintyInput {
                 id: horizontalAccuracyField
                 Layout.fillWidth: true
-                placeholderText: qsTr("Non-negative meters")
+                fieldName: qsTr("horizontal uncertainty")
             }
             QGCLabel { text: qsTr("Vertical uncertainty (m)") }
-            QGCTextField {
+            UncertaintyInput {
                 id: verticalAccuracyField
                 Layout.fillWidth: true
-                placeholderText: qsTr("Non-negative meters")
+                fieldName: qsTr("vertical uncertainty")
             }
         }
         QGCLabel {

@@ -19,10 +19,57 @@ QGCPopupDialog {
         property string destination: "192.168.0.3"
         property string destinationPort: "19551"
     }
+    property Settings uncertaintySettings: Settings {
+        category: "NmeaHeading"
+        property alias rollUncertainty: rollAccuracyField.text
+        property alias pitchUncertainty: pitchAccuracyField.text
+        property alias headingUncertainty: headingAccuracyField.text
+    }
     readonly property string sentence: NmeaHeading.sentenceFromFields([
         utcField.text, rollField.text, pitchField.text, headingField.text,
         rollAccuracyField.text, pitchAccuracyField.text, headingAccuracyField.text
     ])
+
+    component UncertaintyInput: RowLayout {
+        id: editor
+        property alias text: valueField.text
+        property string fieldName
+        readonly property bool validValue: valueField.text.trim().length > 0 &&
+                                          isFinite(Number(valueField.text)) && Number(valueField.text) >= 0
+        spacing: ScreenTools.defaultFontPixelWidth / 2
+
+        function adjust(step) {
+            valueField.text = String(Number(Math.max(0, Number(valueField.text) + step).toFixed(10)))
+        }
+
+        QGCTextField {
+            id: valueField
+            Layout.fillWidth: true
+            text: "5"
+            placeholderText: qsTr("Non-negative degrees")
+        }
+        ColumnLayout {
+            spacing: 0
+            QGCButton {
+                text: "\u25b2"
+                Layout.preferredWidth: ScreenTools.defaultFontPixelWidth * 4
+                topPadding: 0
+                bottomPadding: 0
+                enabled: editor.validValue
+                Accessible.name: qsTr("Increase %1 by 0.1 degrees").arg(editor.fieldName)
+                onClicked: editor.adjust(0.1)
+            }
+            QGCButton {
+                text: "\u25bc"
+                Layout.preferredWidth: ScreenTools.defaultFontPixelWidth * 4
+                topPadding: 0
+                bottomPadding: 0
+                enabled: editor.validValue && Number(valueField.text) > 0
+                Accessible.name: qsTr("Decrease %1 by 0.1 degrees").arg(editor.fieldName)
+                onClicked: editor.adjust(-0.1)
+            }
+        }
+    }
 
     ColumnLayout {
         spacing: ScreenTools.defaultFontPixelHeight / 2
@@ -46,38 +93,41 @@ QGCPopupDialog {
                 QGCLabel { text: qsTr("Roll (degrees)") }
                 QGCTextField {
                     id: rollField
+                    text: "0"
                     Layout.fillWidth: true
                     placeholderText: qsTr("Signed roll angle")
                 }
                 QGCLabel { text: qsTr("Pitch (degrees)") }
                 QGCTextField {
                     id: pitchField
+                    text: "0"
                     Layout.fillWidth: true
                     placeholderText: qsTr("Signed pitch angle")
                 }
                 QGCLabel { text: qsTr("Heading / yaw (degrees)") }
                 QGCTextField {
                     id: headingField
+                    text: "0"
                     Layout.fillWidth: true
                     placeholderText: qsTr("0 to 360")
                 }
                 QGCLabel { text: qsTr("Roll uncertainty (degrees)") }
-                QGCTextField {
+                UncertaintyInput {
                     id: rollAccuracyField
                     Layout.fillWidth: true
-                    placeholderText: qsTr("Non-negative degrees")
+                    fieldName: qsTr("roll uncertainty")
                 }
                 QGCLabel { text: qsTr("Pitch uncertainty (degrees)") }
-                QGCTextField {
+                UncertaintyInput {
                     id: pitchAccuracyField
                     Layout.fillWidth: true
-                    placeholderText: qsTr("Non-negative degrees")
+                    fieldName: qsTr("pitch uncertainty")
                 }
                 QGCLabel { text: qsTr("Heading uncertainty (degrees)") }
-                QGCTextField {
+                UncertaintyInput {
                     id: headingAccuracyField
                     Layout.fillWidth: true
-                    placeholderText: qsTr("Non-negative degrees")
+                    fieldName: qsTr("heading uncertainty")
                 }
             }
             NmeaAttitudeEditor {
