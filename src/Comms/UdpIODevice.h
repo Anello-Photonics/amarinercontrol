@@ -25,6 +25,7 @@ public:
     explicit UdpIODevice(QObject *parent = nullptr);
     ~UdpIODevice();
 
+    void close() override { _buffer.clear(); QUdpSocket::close(); }
     bool canReadLine() const override;
     qint64 readLineData(char* data, qint64 maxSize) override;
     qint64 readData(char* data, qint64 maxSize) override;

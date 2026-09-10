@@ -148,6 +148,8 @@ private:
 #endif
 
     NmeaReceiveTracker _nmeaReceive;
+    QString _nmeaMulticastGroup;
+    QString _nmeaUdpError;
     QTimer *_portListTimer = nullptr;
     QmlObjectListModel *_qmlConfigurations = nullptr;
     AutoConnectSettings *_autoConnectSettings = nullptr;

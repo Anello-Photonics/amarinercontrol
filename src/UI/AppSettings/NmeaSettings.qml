@@ -102,6 +102,18 @@ SettingsPage {
             label: qsTr("NMEA stream UDP port")
             fact: QGroundControl.settingsManager.autoConnectSettings.nmeaUdpPort
         }
+        LabelledFactTextField {
+            visible: nmeaPortCombo.currentText === "UDP Port"
+            label: qsTr("NMEA receive multicast group")
+            fact: QGroundControl.settingsManager.autoConnectSettings.nmeaMulticastGroup
+        }
+        QGCLabel {
+            visible: nmeaPortCombo.currentText === "UDP Port"
+            Layout.maximumWidth: ScreenTools.defaultFontPixelWidth * 65
+            Layout.fillWidth: true
+            wrapMode: Text.WordWrap
+            text: qsTr("For multicast output, enter the group IP configured on the INS and match its output port above. Leave blank for unicast/broadcast. The command destination below is separate.")
+        }
     }
 
     SettingsGroupLayout {

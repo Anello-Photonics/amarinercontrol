@@ -30,6 +30,7 @@
 #include "GPSManager.h"
 #include "PositionManager.h"
 #include "UdpIODevice.h"
+#include "NmeaUdpConfiguration.h"
 #include "GPSRtk.h"
 #endif
 
@@ -119,7 +120,7 @@ LinkManager *LinkManager::instance()
 void LinkManager::init()
 {
     _autoConnectSettings = SettingsManager::instance()->autoConnectSettings();
-    for (Fact *fact : { _autoConnectSettings->autoConnectNmeaPort(), _autoConnectSettings->autoConnectNmeaBaud(), _autoConnectSettings->nmeaUdpPort() }) {
+    for (Fact *fact : { _autoConnectSettings->autoConnectNmeaPort(), _autoConnectSettings->autoConnectNmeaBaud(), _autoConnectSettings->nmeaUdpPort(), _autoConnectSettings->nmeaMulticastGroup() }) {
         connect(fact, &Fact::rawValueChanged, this, [this]() { _nmeaReceive.reset(); });
     }
 #ifndef QGC_NO_SERIAL_LINK
@@ -147,7 +148,8 @@ QVariantMap LinkManager::nmeaReceiveStatus() const
                 ? (_nmeaSocket->state() == UdpIODevice::BoundState && _nmeaSocket->localPort() == _autoConnectSettings->nmeaUdpPort()->rawValue().toUInt())
                 : (_nmeaPort && _nmeaPort->isOpen() && _nmeaDeviceName == port && _nmeaBaud == _autoConnectSettings->autoConnectNmeaBaud()->rawValue().toUInt());
             receiving = open && !_connectionsSuspended && _nmeaReceive.receiving();
-            if (_connectionsSuspended) status = tr("NMEA connection suspended");
+            if (port == "UDP Port" && !_nmeaUdpError.isEmpty()) status = _nmeaUdpError;
+            else if (_connectionsSuspended) status = tr("NMEA connection suspended");
             else if (!open) status = tr("NMEA connection not open");
             else if (receiving) status = tr("Receiving valid NMEA messages");
             else if (_nmeaReceive.everValid()) status = tr("No valid NMEA messages in the last 5 seconds");
@@ -570,14 +572,15 @@ void LinkManager::_updateAutoConnectLinks()
     }
 #endif
 
+    const QString multicastGroup = _autoConnectSettings->nmeaMulticastGroup()->rawValue().toString().trimmed();
     // check to see if nmea gps is configured for UDP input, if so, set it up to connect
     if (_autoConnectSettings->autoConnectNmeaPort()->cookedValueString() == "UDP Port") {
-        if ((_nmeaSocket->localPort() != _autoConnectSettings->nmeaUdpPort()->rawValue().toUInt()) || (_nmeaSocket->state() != UdpIODevice::BoundState)) {
+        if ((_nmeaSocket->localPort() != _autoConnectSettings->nmeaUdpPort()->rawValue().toUInt()) || (_nmeaSocket->state() != UdpIODevice::BoundState) || _nmeaMulticastGroup != multicastGroup) {
             qCDebug(LinkManagerLog) << "Changing port for UDP NMEA stream";
             _nmeaReceive.reset();
-            _nmeaSocket->close();
-            _nmeaSocket->bind(QHostAddress::AnyIPv4, _autoConnectSettings->nmeaUdpPort()->rawValue().toUInt());
-            QGCPositionManager::instance()->setNmeaSourceDevice(_nmeaSocket);
+            _nmeaMulticastGroup = multicastGroup;
+            _nmeaUdpError = configureNmeaUdpSocket(_nmeaSocket, _autoConnectSettings->nmeaUdpPort()->rawValue().toUInt(), multicastGroup);
+            if (_nmeaUdpError.isEmpty()) QGCPositionManager::instance()->setNmeaSourceDevice(_nmeaSocket);
         }
 #ifndef QGC_NO_SERIAL_LINK
         if (_nmeaPort) {
@@ -588,6 +591,8 @@ void LinkManager::_updateAutoConnectLinks()
         }
 #endif
     } else {
+        _nmeaUdpError.clear();
+        _nmeaMulticastGroup.clear();
         _nmeaSocket->close();
     }
 
