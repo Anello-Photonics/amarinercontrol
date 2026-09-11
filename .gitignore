@@ -97,3 +97,7 @@ cpm_modules
 
 #CMakeCache
 CMakeCache.txt
+
+# Local installer and patch artifacts
+/deploy/windows/AMarinerControl-Setup.exe
+*.patch
