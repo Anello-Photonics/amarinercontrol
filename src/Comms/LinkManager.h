@@ -58,7 +58,11 @@ public:
 
     static LinkManager *instance();
 
+    Q_PROPERTY(bool nmeaConnectionEnabled READ nmeaConnectionEnabled WRITE setNmeaConnectionEnabled NOTIFY nmeaConnectionEnabledChanged)
+
     void init();
+    bool nmeaConnectionEnabled() const { return _nmeaConnectionEnabled; }
+    Q_INVOKABLE void setNmeaConnectionEnabled(bool enabled);
     Q_INVOKABLE QVariantMap nmeaReceiveStatus() const;
 
     /// Create/Edit Link Configuration
@@ -127,6 +131,8 @@ public:
     static constexpr uint8_t invalidMavlinkChannel() { return std::numeric_limits<uint8_t>::max(); }
 
 signals:
+    void nmeaConnectionEnabledChanged();
+    void nmeaBytesReceived(const QString &text);
     void mavlinkSupportForwardingEnabledChanged();
     void isBluetoothAvailableChanged();
 
@@ -147,6 +153,7 @@ private:
     void _addZeroConfAutoConnectLink();
 #endif
 
+    bool _nmeaConnectionEnabled = true;
     NmeaReceiveTracker _nmeaReceive;
     QString _nmeaMulticastGroup;
     QString _nmeaUdpError;

@@ -10,6 +10,8 @@ import QGroundControl.FactControls
 SettingsPage {
     id: root
 
+    property NmeaReceiveMonitor receiveMonitor: NmeaReceiveMonitor {}
+
     property string sendStatus: ""
     property var receiveStatus: QGroundControl.linkManager.nmeaReceiveStatus()
     property Timer receiveStatusTimer: Timer {
@@ -79,6 +81,16 @@ SettingsPage {
             onClicked: nmeaPortCombo.refreshPorts()
         }
 
+        QGCButton {
+            text: QGroundControl.linkManager.nmeaConnectionEnabled ? qsTr("Disconnect") : qsTr("Connect")
+            enabled: nmeaPortCombo.currentIndex > 0
+            onClicked: {
+                QGroundControl.linkManager.setNmeaConnectionEnabled(!QGroundControl.linkManager.nmeaConnectionEnabled)
+                root.receiveStatus = QGroundControl.linkManager.nmeaReceiveStatus()
+                root.sendStatus = ""
+            }
+        }
+
         LabelledComboBox {
             id: nmeaBaudCombo
             visible: (nmeaPortCombo.currentText !== "UDP Port") && (nmeaPortCombo.currentText !== "Disabled")
@@ -118,6 +130,14 @@ SettingsPage {
 
     SettingsGroupLayout {
         heading: qsTr("NMEA receive status")
+        QGCButton {
+            text: qsTr("Open receive monitor")
+            onClicked: {
+                root.receiveMonitor.show()
+                root.receiveMonitor.raise()
+                root.receiveMonitor.requestActivate()
+            }
+        }
         RowLayout {
             Rectangle {
                 Layout.preferredWidth: ScreenTools.defaultFontPixelHeight
@@ -197,7 +217,7 @@ SettingsPage {
         }
         QGCButton {
             text: qsTr("Send NMEA command")
-            enabled: nmeaPortCombo.currentIndex > 0 && manualSentence.text.trim().length > 0
+            enabled: QGroundControl.linkManager.nmeaConnectionEnabled && nmeaPortCombo.currentIndex > 0 && manualSentence.text.trim().length > 0
             onClicked: root.sendSentence(manualSentence.text)
         }
         QGCLabel {
