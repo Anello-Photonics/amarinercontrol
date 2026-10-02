@@ -13,6 +13,10 @@ build/
 obj
 .DS_Store
 *.log
+*.patch
+# Dependency patches required by CMake on clean checkouts
+!/src/GPS/px4-gpsdrivers-msvc-packed.patch
+!/src/Utilities/Geo/geographiclib.patch
 *~
 *~.skp
 bin/*.exe
@@ -98,6 +102,5 @@ cpm_modules
 #CMakeCache
 CMakeCache.txt
 
-# Local installer and patch artifacts
+# Generated Windows installer
 /deploy/windows/AMarinerControl-Setup.exe
-*.patch

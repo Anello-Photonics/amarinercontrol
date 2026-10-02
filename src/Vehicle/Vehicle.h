@@ -994,8 +994,8 @@ private:
     void _say                           (const QString& text);
     QString _vehicleIdSpeech            ();
     void _handleMavlinkLoggingData      (mavlink_message_t& message);
-    void _handleMavlinkLoggingDataAcked (mavlink_message_t& message);
-    void _ackMavlinkLogData             (uint16_t sequence);
+    void _handleMavlinkLoggingDataAcked (LinkInterface* link, mavlink_message_t& message);
+    void _ackMavlinkLogData             (LinkInterface* link, uint8_t component, uint16_t sequence);
     void _commonInit                    ();
     void _setupAutoDisarmSignalling     ();
     void _setCapabilities               (uint64_t capabilityBits);

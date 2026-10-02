@@ -13,6 +13,7 @@
 #include "SettingsManager.h"
 #include "AppSettings.h"
 #include "Vehicle.h"
+#include "VehicleLinkManager.h"
 
 #include <QtCore/QDirIterator>
 #include <QtCore/QFile>
@@ -110,25 +111,25 @@ MAVLinkLogProcessor::~MAVLinkLogProcessor()
     // qCDebug(MAVLinkLogManagerLog) << Q_FUNC_INFO << this;
 }
 
-void MAVLinkLogProcessor::close()
+bool MAVLinkLogProcessor::close()
 {
     if (_file.isOpen()) {
+        if (!_file.flush()) {
+            _error = true;
+        }
         _file.close();
     }
+    return !_error;
 }
 
 bool MAVLinkLogProcessor::create(MAVLinkLogManager *manager, QStringView path, uint8_t id)
 {
-    _fileName = _fileName.asprintf(
-        "%s/%03d-%s%s",
-        path.toLatin1().constData(),
-        id,
-        QDateTime::currentDateTime().toString("yyyy-MM-dd-hh-mm-ss-zzz").toLocal8Bit().constData(),
-        manager->logExtension().toLocal8Bit().constData()
-    );
+    _fileName = QDir(path.toString()).filePath(QStringLiteral("%1-%2%3")
+        .arg(id, 3, 10, QLatin1Char('0'))
+        .arg(QDateTime::currentDateTime().toString("yyyy-MM-dd-hh-mm-ss-zzz"), manager->logExtension()));
 
     _file.setFileName(_fileName);
-    if (!_file.open(QIODevice::WriteOnly)) {
+    if (!_file.open(QIODevice::WriteOnly | QIODevice::NewOnly)) {
         qCWarning(MAVLinkLogManagerLog) << "Failed to open file for writing:" << _file.errorString();
         return false;
     }
@@ -213,13 +214,18 @@ QByteArray MAVLinkLogProcessor::_writeUlogMessage(QByteArray &data)
     return data;
 }
 
-bool MAVLinkLogProcessor::processStreamData(uint16_t sequence, uint8_t first_message, const QByteArray &in)
+bool MAVLinkLogProcessor::processStreamData(uint16_t sequence, uint8_t first_message, const QByteArray &in, bool acked)
 {
     int num_drops = 0;
-    _error = false;
+    if (_error || (first_message != 255 && first_message > in.size())) {
+        return false;
+    }
 
     QByteArray data(in);
     while (_checkSequence(sequence, num_drops)) {
+        if (!acked) {
+            _gotHeaderSection = true;
+        }
         if (!_gotHeader) {
             if (data.size() < 16) {
                 qCWarning(MAVLinkLogManagerLog) << "Corrupt log header. Canceling log download.";
@@ -232,7 +238,7 @@ bool MAVLinkLogProcessor::processStreamData(uint16_t sequence, uint8_t first_mes
             // What about data start offset now that we removed 16 bytes off the start?
         }
 
-        if (_gotHeader && (num_drops > 0)) {
+        if (_gotHeaderSection && (num_drops > 0)) {
             if (num_drops > 25) {
                 num_drops = 25;
             }
@@ -294,6 +300,25 @@ MAVLinkLogManager::MAVLinkLogManager(Vehicle *vehicle, QObject *parent)
 {
     qCDebug(MAVLinkLogManagerLog) << this;
 
+    _hostLogTimer.setSingleShot(true);
+    connect(&_hostLogTimer, &QTimer::timeout, this, [this]() {
+        _vehicle->stopMavlinkLog();
+        _finishHostLogging(_hostStopping ? tr("Stop acknowledgement timed out; file closed.")
+                           : _hostReceivedData ? tr("Log stream stalled: no new data for 10 seconds. Check MAVLink 2, acknowledgements, and MAV_x_RATE = 200000. Partial log saved.")
+                                               : tr("Logging start timed out. Check INS logger status."));
+    });
+    connect(_vehicle->vehicleLinkManager(), &VehicleLinkManager::allLinksRemoved, this, [this]() {
+        if (_hostLogging) {
+            _finishHostLogging(tr("Vehicle disconnected; file closed."));
+        }
+    });
+    connect(_vehicle->vehicleLinkManager(), &VehicleLinkManager::communicationLostChanged, this, [this](bool lost) {
+        if (lost && _hostLogging) {
+            _vehicle->stopMavlinkLog();
+            _finishHostLogging(tr("Vehicle communication lost; file closed."));
+        }
+    });
+
 #if !defined(Q_OS_IOS) && !defined(Q_OS_ANDROID)
     QNetworkProxy tProxy = _networkManager->proxy();
     tProxy.setType(QNetworkProxy::DefaultProxy);
@@ -323,6 +348,10 @@ MAVLinkLogManager::MAVLinkLogManager(Vehicle *vehicle, QObject *parent)
         }
     }
 
+    if (_vehicle->px4Firmware()) {
+        connect(_vehicle, &Vehicle::mavlinkLogData, this, &MAVLinkLogManager::_mavlinkLogData);
+        connect(_vehicle, &Vehicle::mavCommandResult, this, &MAVLinkLogManager::_mavCommandResult);
+    }
     if (!_loggingDisabled) {
         const QString filter = "*" + _ulogExtension;
         QDirIterator it(_logPath, QStringList() << filter, QDir::Files);
@@ -334,8 +363,6 @@ MAVLinkLogManager::MAVLinkLogManager(Vehicle *vehicle, QObject *parent)
         if (_vehicle->px4Firmware()) {
             _loggingDenied = false;
             (void) connect(_vehicle, &Vehicle::armedChanged, this, &MAVLinkLogManager::_armedChanged);
-            (void) connect(_vehicle, &Vehicle::mavlinkLogData, this, &MAVLinkLogManager::_mavlinkLogData);
-            (void) connect(_vehicle, &Vehicle::mavCommandResult, this, &MAVLinkLogManager::_mavCommandResult);
             emit canStartLogChanged();
         }
     }
@@ -343,6 +370,7 @@ MAVLinkLogManager::MAVLinkLogManager(Vehicle *vehicle, QObject *parent)
 
 MAVLinkLogManager::~MAVLinkLogManager()
 {
+    delete _logProcessor;
     _logFiles->clearAndDeleteContents();
 
     qCDebug(MAVLinkLogManagerLog) << this;
@@ -592,6 +620,9 @@ void MAVLinkLogManager::cancelUpload()
 
 void MAVLinkLogManager::startLogging()
 {
+    if (_logRunning) {
+        return;
+    }
     AppSettings *const appSettings = SettingsManager::instance()->appSettings();
     if (appSettings->disableAllPersistence()->rawValue().toBool()) {
         return;
@@ -612,6 +643,16 @@ void MAVLinkLogManager::startLogging()
 
 void MAVLinkLogManager::stopLogging()
 {
+    if (_hostLogging) {
+        if (!_hostStopping) {
+            _hostStopping = true;
+            _hostLogStatus = tr("Stopping; waiting for acknowledgement…\n%1").arg(_logProcessor->fileName());
+            emit hostLogStatusChanged();
+            _hostLogTimer.start(3000);
+            _vehicle->stopMavlinkLog();
+        }
+        return;
+    }
     if (_vehicle && _vehicle->px4Firmware()) {
         _vehicle->stopMavlinkLog();
     }
@@ -635,6 +676,65 @@ void MAVLinkLogManager::stopLogging()
     _logProcessor = nullptr;
     _logRunning = false;
     emit logRunningChanged();
+}
+
+void MAVLinkLogManager::startHostLogging(const QString &directory)
+{
+    if (_logRunning) {
+        return;
+    }
+    if (!_vehicle || !_vehicle->px4Firmware() || _vehicle->vehicleLinkManager()->primaryLink().expired()
+        || _vehicle->vehicleLinkManager()->communicationLost()
+        || SettingsManager::instance()->appSettings()->disableAllPersistence()->rawValue().toBool()) {
+        _hostLogStatus = tr("Logging requires a connected PX4/INS vehicle and file saving enabled.");
+        emit hostLogStatusChanged();
+        return;
+    }
+    const QUrl url(directory);
+    const QString path = url.isLocalFile() ? url.toLocalFile() : directory;
+    if (path.isEmpty() || !QDir(path).exists()) {
+        _hostLogStatus = tr("Select an existing folder on the computer or external drive.");
+        emit hostLogStatusChanged();
+        return;
+    }
+    delete _logProcessor;
+    _logProcessor = new MAVLinkLogProcessor;
+    if (!_logProcessor->create(this, path, static_cast<uint8_t>(_vehicle->id()))) {
+        delete _logProcessor;
+        _logProcessor = nullptr;
+        _hostLogStatus = tr("Cannot create log file in %1. Check drive availability and write permissions.").arg(path);
+        emit hostLogStatusChanged();
+        return;
+    }
+    _hostLogging = true;
+    _hostStopping = false;
+    _hostReceivedData = false;
+    _logRunning = true;
+    _hostLogStatus = tr("Starting: %1").arg(_logProcessor->fileName());
+    emit hostLogStatusChanged();
+    emit logRunningChanged();
+    _hostLogTimer.start(4000);
+    _vehicle->startMavlinkLog();
+}
+
+void MAVLinkLogManager::_finishHostLogging(const QString &status)
+{
+    _hostLogTimer.stop();
+    const QString filename = _logProcessor ? _logProcessor->fileName() : QString();
+    bool saved = true;
+    if (_logProcessor) {
+        saved = _logProcessor->close();
+        delete _logProcessor->record();
+        delete _logProcessor;
+        _logProcessor = nullptr;
+    }
+    _hostLogging = false;
+    _hostStopping = false;
+    _logRunning = false;
+    _hostLogStatus = (saved ? status : tr("File write failed; the recording may be incomplete. Check the drive and available space."))
+        + QStringLiteral("\n") + filename;
+    emit logRunningChanged();
+    emit hostLogStatusChanged();
 }
 
 QHttpPart MAVLinkLogManager::_createFormPart(QStringView name, QStringView value)
@@ -805,18 +905,31 @@ void MAVLinkLogManager::_uploadProgress(qint64 bytesSent, qint64 bytesTotal)
     qCDebug(MAVLinkLogManagerLog) << bytesSent << "of" << bytesTotal;
 }
 
-void MAVLinkLogManager::_mavlinkLogData(Vehicle* /*vehicle*/, uint8_t /*target_system*/, uint8_t /*target_component*/, uint16_t sequence, uint8_t first_message, const QByteArray &data, bool /*acked*/)
+void MAVLinkLogManager::_mavlinkLogData(Vehicle* /*vehicle*/, uint8_t /*target_system*/, uint8_t /*target_component*/, uint16_t sequence, uint8_t first_message, const QByteArray &data, bool acked)
 {
     if (!_logProcessor || !_logProcessor->valid()) {
         qCDebug(MAVLinkLogManagerLog) << "MAVLink log data received when not expected.";
         return;
     }
 
-    if (_logProcessor->processStreamData(sequence, first_message, data)) {
+    const int previousSequence = _logProcessor->lastSequence();
+    if (_logProcessor->processStreamData(sequence, first_message, data, acked)) {
+        if (_hostLogging && !_hostStopping && _logProcessor->lastSequence() != previousSequence) {
+            _hostReceivedData = true;
+            _hostLogTimer.start(10000);
+            const QString phase = _logProcessor->headerSectionReceived() ? tr("Recording") : tr("Receiving log header");
+            _hostLogStatus = tr("%1: %2 (%3 bytes)").arg(phase, _logProcessor->fileName()).arg(_logProcessor->record()->size());
+            emit hostLogStatusChanged();
+        }
         return;
     }
 
     qCWarning(MAVLinkLogManagerLog) << "Error writing MAVLink log file:" << _logProcessor->fileName();
+    if (_hostLogging) {
+        _vehicle->stopMavlinkLog();
+        _finishHostLogging(tr("Logging stopped: invalid data or file write failure. Check the drive and available space."));
+        return;
+    }
     delete _logProcessor;
     _logProcessor = nullptr;
     _logRunning = false;
@@ -829,6 +942,16 @@ void MAVLinkLogManager::_mavCommandResult(int vehicleId, int component, int comm
     Q_UNUSED(vehicleId); Q_UNUSED(component); Q_UNUSED(failureCode)
 
     if ((command != MAV_CMD_LOGGING_START) && (command != MAV_CMD_LOGGING_STOP)) {
+        return;
+    }
+
+    if (_hostLogging) {
+        if (command == MAV_CMD_LOGGING_STOP && _hostStopping) {
+            _finishHostLogging(result == MAV_RESULT_ACCEPTED ? tr("Log saved.") : tr("Stop command failed; file closed."));
+        } else if (command == MAV_CMD_LOGGING_START && result != MAV_RESULT_ACCEPTED && result != MAV_RESULT_IN_PROGRESS) {
+            _vehicle->stopMavlinkLog();
+            _finishHostLogging(tr("Logging start failed (MAVLink result %1).").arg(result));
+        }
         return;
     }
 
@@ -885,6 +1008,9 @@ bool MAVLinkLogManager::_createNewLog()
 
 void MAVLinkLogManager::_armedChanged(bool armed)
 {
+    if (_hostLogging) {
+        return;
+    }
     if (!_vehicle || !_vehicle->px4Firmware()) {
         return;
     }

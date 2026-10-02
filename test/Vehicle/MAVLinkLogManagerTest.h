@@ -17,4 +17,6 @@ class MAVLinkLogManagerTest : public UnitTest
 
 private slots:
     void _testInitMAVLinkLogManager();
+    void _testStreamReassembly();
+    void _testHostDestinationFailure();
 };

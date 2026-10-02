@@ -559,7 +559,7 @@ void Vehicle::_mavlinkMessageReceived(LinkInterface* link, mavlink_message_t mes
         _handleMavlinkLoggingData(message);
         break;
     case MAVLINK_MSG_ID_LOGGING_DATA_ACKED:
-        _handleMavlinkLoggingDataAcked(message);
+        _handleMavlinkLoggingDataAcked(link, message);
         break;
     case MAVLINK_MSG_ID_GPS_RAW_INT:
         _handleGpsRawInt(message);
@@ -3256,28 +3256,30 @@ void Vehicle::stopMavlinkLog()
     sendMavCommand(_defaultComponentId, MAV_CMD_LOGGING_STOP, false /* showError */);
 }
 
-void Vehicle::_ackMavlinkLogData(uint16_t sequence)
+void Vehicle::_ackMavlinkLogData(LinkInterface* link, uint8_t component, uint16_t sequence)
 {
-    SharedLinkInterfacePtr  sharedLink = vehicleLinkManager()->primaryLink().lock();
-    if (!sharedLink) {
-        qCDebug(VehicleLog) << "_ackMavlinkLogData: primary link gone!";
+    if (!link || !link->isConnected()) {
         return;
     }
+
+    // LOGGING_DATA_ACKED and LOGGING_ACK require MAVLink 2. The first
+    // heartbeat on this link may have negotiated MAVLink 1 instead.
+    mavlink_set_proto_version(link->mavlinkChannel(), 2);
 
     mavlink_message_t       msg;
     mavlink_logging_ack_t   ack;
 
     memset(&ack, 0, sizeof(ack));
     ack.sequence = sequence;
-    ack.target_component = _defaultComponentId;
+    ack.target_component = component;
     ack.target_system = id();
     mavlink_msg_logging_ack_encode_chan(
                 MAVLinkProtocol::instance()->getSystemId(),
                 MAVLinkProtocol::getComponentId(),
-                sharedLink->mavlinkChannel(),
+                link->mavlinkChannel(),
                 &msg,
                 &ack);
-    sendMessageOnLinkThreadSafe(sharedLink.get(), msg);
+    sendMessageOnLinkThreadSafe(link, msg);
 }
 
 void Vehicle::_handleMavlinkLoggingData(mavlink_message_t& message)
@@ -3292,16 +3294,21 @@ void Vehicle::_handleMavlinkLoggingData(mavlink_message_t& message)
     }
 }
 
-void Vehicle::_handleMavlinkLoggingDataAcked(mavlink_message_t& message)
+void Vehicle::_handleMavlinkLoggingDataAcked(LinkInterface* link, mavlink_message_t& message)
 {
     mavlink_logging_data_acked_t log;
     mavlink_msg_logging_data_acked_decode(&message, &log);
-    _ackMavlinkLogData(log.sequence);
+    if ((log.target_system != 0 && log.target_system != MAVLinkProtocol::instance()->getSystemId()) ||
+        (log.target_component != 0 && log.target_component != MAVLinkProtocol::getComponentId())) {
+        return;
+    }
+    // Re-acknowledge retransmissions too: the previous ACK may have been lost.
+    _ackMavlinkLogData(link, message.compid, log.sequence);
     if (static_cast<size_t>(log.length) > sizeof(log.data)) {
         qWarning() << "Invalid length for LOGGING_DATA_ACKED, discarding." << log.length;
     } else {
         emit mavlinkLogData(this, log.target_system, log.target_component, log.sequence,
-                            log.first_message_offset, QByteArray((const char*)log.data, log.length), false);
+                            log.first_message_offset, QByteArray((const char*)log.data, log.length), true);
     }
 }
 
@@ -4334,6 +4341,9 @@ void Vehicle::_textMessageReceived(MAV_COMPONENT componentid, MAV_SEVERITY sever
 
 void Vehicle::_errorMessageReceived(QString message)
 {
+    if (message.contains(QStringLiteral("Not enough bandwidth to enable log streaming"), Qt::CaseInsensitive)) {
+        message += QStringLiteral("\n\n") + tr("Increase MAV_x_RATE to 200000 for the MAVLink instance used by the current connection (replace x with the instance number), then retry recording.");
+    }
     if (_isActiveVehicle) {
         qgcApp()->showCriticalVehicleMessage(message);
     }

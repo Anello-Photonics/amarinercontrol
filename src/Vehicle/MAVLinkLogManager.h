@@ -13,6 +13,7 @@
 #include <QtCore/QFile>
 #include <QtCore/QLoggingCategory>
 #include <QtCore/QObject>
+#include <QtCore/QTimer>
 #include <QtNetwork/QHttpPart>
 #include <QtQmlIntegration/QtQmlIntegration>
 
@@ -80,12 +81,14 @@ public:
     MAVLinkLogProcessor();
     ~MAVLinkLogProcessor();
 
-    void close();
+    bool close();
     bool valid() const { return ((_file.exists()) && (_record != nullptr)); }
     bool create(MAVLinkLogManager *manager, QStringView path, uint8_t id);
     MAVLinkLogFiles *record() { return _record; }
     QString fileName() const { return _fileName; }
-    bool processStreamData(uint16_t _sequence, uint8_t first_message, const QByteArray &in);
+    int lastSequence() const { return _sequence; }
+    bool headerSectionReceived() const { return _gotHeaderSection; }
+    bool processStreamData(uint16_t _sequence, uint8_t first_message, const QByteArray &in, bool acked = false);
 
 private:
     bool _checkSequence(uint16_t seq, int &num_drops);
@@ -94,6 +97,7 @@ private:
 
     bool _error = false;
     bool _gotHeader = false;
+    bool _gotHeaderSection = false;
     int _numDrops = 0;
     int _sequence = -1;
     MAVLinkLogFiles *_record = nullptr;
@@ -126,6 +130,8 @@ class MAVLinkLogManager : public QObject
     Q_PROPERTY(bool                 publicLog           READ publicLog          WRITE setPublicLog          NOTIFY publicLogChanged)
     Q_PROPERTY(bool                 uploading           READ uploading                                      NOTIFY uploadingChanged)
     Q_PROPERTY(bool                 logRunning          READ logRunning                                     NOTIFY logRunningChanged)
+    Q_PROPERTY(QString hostLogStatus READ hostLogStatus NOTIFY hostLogStatusChanged)
+    Q_PROPERTY(bool hostLogActive READ hostLogActive NOTIFY hostLogStatusChanged)
     Q_PROPERTY(bool                 canStartLog         READ canStartLog                                    NOTIFY canStartLogChanged)
     Q_PROPERTY(QmlObjectListModel   *logFiles           READ logFiles                                       NOTIFY logFilesChanged)
     Q_PROPERTY(int                  windSpeed           READ windSpeed          WRITE setWindSpeed          NOTIFY windSpeedChanged)
@@ -142,6 +148,7 @@ public:
     Q_INVOKABLE void cancelUpload();
     Q_INVOKABLE void deleteLog();
     Q_INVOKABLE void startLogging();
+    Q_INVOKABLE void startHostLogging(const QString &directory);
     Q_INVOKABLE void stopLogging();
     Q_INVOKABLE void uploadLog();
 
@@ -154,6 +161,8 @@ public:
     bool enableAutoStart() const { return _enableAutoStart; }
     bool uploading() const { return (_currentLogfile != nullptr); }
     bool logRunning() const { return _logRunning; }
+    QString hostLogStatus() const { return _hostLogStatus; }
+    bool hostLogActive() const { return _hostLogging && _logProcessor && _logProcessor->headerSectionReceived(); }
     bool canStartLog() const { return !_loggingDenied; }
     bool deleteAfterUpload() const { return _deleteAfterUpload; }
     bool publicLog() const { return _publicLog; }
@@ -187,6 +196,7 @@ signals:
     void feedbackChanged();
     void logFilesChanged();
     void logRunningChanged();
+    void hostLogStatusChanged();
     void publicLogChanged();
     void ratingChanged();
     void readyRead(const QByteArray &data);
@@ -206,6 +216,12 @@ private slots:
     void _mavCommandResult(int vehicleId, int component, int command, int result, int failureCode);
 
 private:
+    void _finishHostLogging(const QString &status);
+    bool _hostLogging = false;
+    bool _hostStopping = false;
+    bool _hostReceivedData = false;
+    QString _hostLogStatus;
+    QTimer _hostLogTimer;
     bool _sendLog(const QString &logFile);
     bool _processUploadResponse(int http_code, const QByteArray &data);
     bool _createNewLog();

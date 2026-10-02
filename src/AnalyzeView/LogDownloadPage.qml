@@ -22,6 +22,9 @@ AnalyzePage {
     pageComponent: pageComponent
     pageDescription: qsTr("Log Download allows you to download binary log files from your vehicle. Click Refresh to get list of available logs.")
     readonly property bool _showLogGroupEraseControls: false
+    readonly property var _vehicle: QGroundControl.multiVehicleManager.activeVehicle
+    readonly property var _logger: _vehicle ? _vehicle.mavlinkLogManager : null
+    readonly property bool _recording: _logger ? _logger.logRunning : false
 
     Component {
         id: pageComponent
@@ -109,6 +112,7 @@ AnalyzePage {
 
             ColumnLayout {
                 spacing: ScreenTools.defaultFontPixelWidth
+                enabled: !logDownloadPage._recording
                 Layout.alignment: Qt.AlignTop
                 Layout.fillWidth: false
 

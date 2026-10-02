@@ -54,21 +54,6 @@ Item {
             text:           qsTr("Refresh")
             onTriggered:	controller.refresh()
         }
-        QGCMenuItem {
-            text:           qsTr("Reset all to firmware's defaults")
-            onTriggered:    mainWindow.showMessageDialog(qsTr("Reset All"),
-                                                         qsTr("Select Reset to reset all parameters to their defaults.\n\nNote that this will also completely reset everything, including UAVCAN nodes, all vehicle settings, setup and calibrations."),
-                                                         Dialog.Cancel | Dialog.Reset,
-                                                         function() { controller.resetAllToDefaults() })
-        }
-        QGCMenuItem {
-            text:           qsTr("Reset to vehicle's configuration defaults")
-            visible:        !_activeVehicle.apmFirmware
-            onTriggered:    mainWindow.showMessageDialog(qsTr("Reset All"),
-                                                         qsTr("Select Reset to reset all parameters to the vehicle's configuration defaults."),
-                                                         Dialog.Cancel | Dialog.Reset,
-                                                         function() { controller.resetAllToVehicleConfiguration() })
-        }
         QGCMenuSeparator { }
         QGCMenuItem {
             text:           qsTr("Load from file for review...")
@@ -83,12 +68,6 @@ Item {
                 fileDialog.title =          qsTr("Save Parameters")
                 fileDialog.openForSave()
             }
-        }
-        QGCMenuSeparator { visible: _showRCToParam }
-        QGCMenuItem {
-            text:           qsTr("Clear all RC to Param")
-            onTriggered:	_activeVehicle.clearAllParamMapRC()
-            visible:        _showRCToParam
         }
         QGCMenuSeparator { }
         QGCMenuItem {

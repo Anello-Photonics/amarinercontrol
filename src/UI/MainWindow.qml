@@ -29,6 +29,39 @@ ApplicationWindow {
 
     property bool   _utmspSendActTrigger
 
+    readonly property bool liveLogActive: {
+        for (var i = 0; i < liveLogVehicles.count; ++i) {
+            var vehicleState = liveLogVehicles.itemAt(i)
+            if (vehicleState && vehicleState.recording) {
+                return true
+            }
+        }
+        return false
+    }
+
+    Repeater {
+        id: liveLogVehicles
+        model: QGroundControl.multiVehicleManager.vehicles
+        delegate: Item {
+            required property var object
+            readonly property bool recording: object.mavlinkLogManager.hostLogActive
+        }
+    }
+
+    Rectangle {
+        anchors.right: parent.right
+        anchors.rightMargin: ScreenTools.defaultFontPixelWidth
+        y: (ScreenTools.toolbarHeight - height) / 2
+        width: ScreenTools.defaultFontPixelHeight * 0.65
+        height: width
+        radius: width / 2
+        color: "#32CD32"
+        visible: mainWindow.liveLogActive
+        z: QGroundControl.zOrderTopMost + 1
+        Accessible.role: Accessible.Indicator
+        Accessible.name: qsTr("Live log recording active")
+    }
+
     Component.onCompleted: {
         // Start the sequence of first run prompt(s)
         //supress first run prompts (units, vehicle info, etc
