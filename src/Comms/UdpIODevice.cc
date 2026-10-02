@@ -59,8 +59,6 @@ void UdpIODevice::_readAvailableData()
         const qint64 size = pendingDatagramSize();
         const int oldSize = _buffer.size();
         _buffer.resize(oldSize + static_cast<int>(size));
-        const qint64 received = readDatagram(_buffer.data() + oldSize, size);
-        _buffer.resize(oldSize + static_cast<int>(qMax<qint64>(0, received)));
-        if (received > 0) emit datagramReceived(_buffer.mid(oldSize));
+        (void) readDatagram(_buffer.data() + oldSize, size);
     }
 }

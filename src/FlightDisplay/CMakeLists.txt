@@ -40,11 +40,6 @@ qt_add_qml_module(FlightDisplayModule
         GuidedValueSlider.qml
         MultiRotorChecklist.qml
         MultiVehicleList.qml
-        NmeaAttitudeEditor.qml
-        NmeaHeading.js
-        NmeaHeadingDialog.qml
-        NmeaPositionInit.js
-        NmeaPositionInitDialog.qml
         ObstacleDistanceOverlay.qml
         ObstacleDistanceOverlayMap.qml
         ObstacleDistanceOverlayVideo.qml

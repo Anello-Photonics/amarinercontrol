@@ -63,13 +63,6 @@ ListModel {
     }
 
     ListElement {
-        name: qsTr("NMEA / INS")
-        url: "qrc:/qml/QGroundControl/AppSettings/NmeaSettings.qml"
-        iconUrl: "qrc:/InstrumentValueIcons/usb.svg"
-        pageVisible: function() { return true }
-    }
-
-    ListElement {
         name: qsTr("NTRIP / RTK")
         url: "qrc:/qml/QGroundControl/AppSettings/NTRIPSettingsPage.qml"
         iconUrl: "qrc:/InstrumentValueIcons/network.svg"
