@@ -25,10 +25,14 @@ public:
     explicit UdpIODevice(QObject *parent = nullptr);
     ~UdpIODevice();
 
+    void close() override { _buffer.clear(); QUdpSocket::close(); }
     bool canReadLine() const override;
     qint64 readLineData(char* data, qint64 maxSize) override;
     qint64 readData(char* data, qint64 maxSize) override;
     bool isSequential() const override { return true; }
+
+signals:
+    void datagramReceived(const QByteArray &bytes);
 
 private slots:
     void _readAvailableData();

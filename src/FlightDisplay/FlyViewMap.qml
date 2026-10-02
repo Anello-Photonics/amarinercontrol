@@ -48,6 +48,11 @@ FlightMap {
     property var    _flyViewSettings:           QGroundControl.settingsManager.flyViewSettings
     property bool   _keepMapCenteredOnVehicle:  _flyViewSettings.keepMapCenteredOnVehicle.rawValue
 
+    readonly property bool _nmeaConfigured: {
+        const port = QGroundControl.settingsManager.autoConnectSettings.autoConnectNmeaPort.valueString
+        return port.length > 0 && port !== "Disabled"
+    }
+
     property bool   _disableVehicleTracking:    false
     property bool   _keepVehicleCentered:       pipMode ? true : false
     property bool   _saveZoomLevelSetting:      true
@@ -667,6 +672,18 @@ FlightMap {
     }
 
     Component {
+        id: nmeaPositionInitDialogComponent
+
+        NmeaPositionInitDialog { }
+    }
+
+    Component {
+        id: nmeaHeadingDialogComponent
+
+        NmeaHeadingDialog { }
+    }
+
+    Component {
         id: mapClickDropPanelComponent
 
         DropPanel {
@@ -717,22 +734,21 @@ FlightMap {
                     }
 
                     QGCButton {
-                        Layout.fillWidth:   true
-                        text:               qsTr("Set home here")
-                        visible:            globals.guidedControllerFlyView.showSetHome
+                        Layout.fillWidth: true
+                        text: qsTr("Send NMEA position")
                         onClicked: {
+                            const coordinate = QtPositioning.coordinate(mapClickCoord.latitude, mapClickCoord.longitude)
+                            nmeaPositionInitDialogComponent.createObject(mainWindow, { coordinate: coordinate }).open()
                             mapClickDropPanel.close()
-                            globals.guidedControllerFlyView.confirmAction(globals.guidedControllerFlyView.actionSetHome, mapClickCoord)
                         }
                     }
 
                     QGCButton {
-                        Layout.fillWidth:   true
-                        text:               qsTr("Set Estimator Origin")
-                        visible:            globals.guidedControllerFlyView.showSetEstimatorOrigin
+                        Layout.fillWidth: true
+                        text: qsTr("Send NMEA heading")
                         onClicked: {
+                            nmeaHeadingDialogComponent.createObject(mainWindow).open()
                             mapClickDropPanel.close()
-                            globals.guidedControllerFlyView.confirmAction(globals.guidedControllerFlyView.actionSetEstimatorOrigin, mapClickCoord)
                         }
                     }
 
@@ -759,8 +775,8 @@ FlightMap {
     onMapClicked: (position) => {
         if (!globals.guidedControllerFlyView.guidedUIVisible && 
             (globals.guidedControllerFlyView.showGotoLocation || globals.guidedControllerFlyView.showOrbit ||
-             globals.guidedControllerFlyView.showROI || globals.guidedControllerFlyView.showSetHome ||
-             globals.guidedControllerFlyView.showSetEstimatorOrigin)) {
+             globals.guidedControllerFlyView.showROI ||
+             _nmeaConfigured)) {
 
             position = Qt.point(position.x, position.y)
             var clickCoord = _root.toCoordinate(position, false /* clipToViewPort */)
