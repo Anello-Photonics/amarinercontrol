@@ -13,6 +13,7 @@ build/
 obj
 .DS_Store
 *.log
+*.patch
 *~
 *~.skp
 bin/*.exe
@@ -97,3 +98,6 @@ cpm_modules
 
 #CMakeCache
 CMakeCache.txt
+
+# Generated Windows installer
+/deploy/windows/AMarinerControl-Setup.exe

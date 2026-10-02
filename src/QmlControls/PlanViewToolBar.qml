@@ -74,6 +74,7 @@ Rectangle {
         anchors.bottom:         parent.bottom
         anchors.right:          parent.right
         contentWidth:           toolIndicators.width
+        anchors.rightMargin:    mainWindow.liveLogActive ? ScreenTools.defaultFontPixelHeight * 1.5 : 0
         flickableDirection:     Flickable.HorizontalFlick
 
         PlanToolBarIndicators {
