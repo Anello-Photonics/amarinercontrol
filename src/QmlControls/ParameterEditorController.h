@@ -11,6 +11,7 @@
 
 #include <QtCore/QLoggingCategory>
 #include <QtCore/QObject>
+#include <QtCore/QPointer>
 #include <QtQmlIntegration/QtQmlIntegration>
 
 #include "FactPanelController.h"
@@ -139,6 +140,9 @@ class ParameterEditorController : public FactPanelController
     Q_PROPERTY(QAbstractTableModel* parameters              MEMBER _parameters                                          NOTIFY parametersChanged)
     Q_PROPERTY(bool                 showModifiedOnly        MEMBER _showModifiedOnly                                    NOTIFY showModifiedOnlyChanged)
 
+    Q_PROPERTY(bool presetResetInProgress READ presetResetInProgress NOTIFY presetResetChanged)
+    Q_PROPERTY(QString presetResetStatus MEMBER _presetResetStatus NOTIFY presetResetChanged)
+
     // These property are related to the diff associated with a load from file
     Q_PROPERTY(bool                 diffOtherVehicle        MEMBER _diffOtherVehicle                                    NOTIFY diffOtherVehicleChanged)
     Q_PROPERTY(bool                 diffMultipleComponents  MEMBER _diffMultipleComponents                              NOTIFY diffMultipleComponentsChanged)
@@ -153,6 +157,10 @@ public:
     Q_INVOKABLE bool buildDiffFromFile              (const QString& filename);
     Q_INVOKABLE void clearDiff                      (void);
     Q_INVOKABLE void sendDiff                       (void);
+    Q_INVOKABLE void resetToMaritimeDefaults();
+    Q_INVOKABLE void resetToAerialDefaults();
+    Q_INVOKABLE void rebootViaShell();
+    bool presetResetInProgress() const { return _presetResetTimer.isActive() || _shellRebootPending; }
     Q_INVOKABLE void refresh                        (void);
     Q_INVOKABLE void resetAllToDefaults             (void);
     Q_INVOKABLE void resetAllToVehicleConfiguration (void);
@@ -165,6 +173,9 @@ public:
     void                setCurrentGroup     (QObject* currentGroup);
 
 signals:
+    void shellRebootError(const QString &message);
+    void presetResetChanged();
+    void presetResetFinished(const QString &message);
     void searchTextChanged              (QString searchText);
     void currentCategoryChanged         (void);
     void currentGroupChanged            (void);
@@ -181,9 +192,26 @@ private slots:
     void _buildListsForComponent(int compId);
     void _buildListsIfReady     (bool parametersReady);
     void _factAdded             (int compId, Fact* fact);
+    void _secondaryUdpConfigChanged();
 
 private:
+    void _startPresetReset(const QStringList &commands, const QString &presetName);
+    QString _presetName;
+    static bool _sendShell(Vehicle *vehicle, const QByteArray &data, bool close = false);
+    bool _shellRebootPending = false;
+    bool _sendPresetShell(const QByteArray &data, bool close = false);
+    void _nextPresetCommand();
+    void _finishPresetReset(const QString &error = QString());
+    QPointer<Vehicle> _presetResetVehicle;
+    QTimer _presetResetTimer;
+    QMetaObject::Connection _presetReceiveConnection;
+    QStringList _presetCommands;
+    QByteArray _presetOutput;
+    QString _presetResetStatus;
+    int _presetCommandIndex = -1;
     bool _shouldShow(Fact *fact) const;
+    bool _secondaryUdpSettingsVisible(Fact *fact) const;
+    void _watchSecondaryUdpConfig(Fact *fact);
     void _refreshFactMetaData(int compId, Fact *fact) const;
     QString _parameterDisplayCategory(Fact *fact) const;
     QString _parameterDisplayGroup(Fact *fact) const;

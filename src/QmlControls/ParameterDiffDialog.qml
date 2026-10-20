@@ -37,7 +37,13 @@ QGCPopupDialog {
             wrapMode:               Text.WordWrap
             text:                   paramController.diffList.count ?
                                         qsTr("The following parameters from the loaded file differ from what is currently set on the Vehicle. Click 'Ok' to update them on the Vehicle.") :
-                                        qsTr("There are no differences between the file loaded and the current settings on the Vehicle.")
+                                        qsTr("There are no applicable parameter differences between the file loaded and the current settings on the Vehicle.")
+        }
+
+        QGCLabel {
+            Layout.preferredWidth:  mainGrid.visible ? mainGrid.width : ScreenTools.defaultFontPixelWidth * 40
+            wrapMode:               Text.WordWrap
+            text:                   qsTr("Unit identity parameters IMU_MB_C_SN and IMU_MB_C_YR are always excluded from file imports.")
         }
 
         GridLayout {
