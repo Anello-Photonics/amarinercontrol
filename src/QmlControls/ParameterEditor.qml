@@ -35,6 +35,8 @@ Item {
 
     ParameterEditorController {
         id: controller
+        onShellRebootError: (message) => mainWindow.showMessageDialog(qsTr("Reboot Vehicle"), message)
+        onPresetResetFinished: (message) => mainWindow.showMessageDialog(qsTr("INS defaults"), message)
     }
 
     Timer {
@@ -50,6 +52,7 @@ Item {
 
     QGCMenu {
         id:                 toolsMenu
+        enabled:            !controller.presetResetInProgress
         QGCMenuItem {
             text:           qsTr("Refresh")
             onTriggered:	controller.refresh()
@@ -71,11 +74,28 @@ Item {
         }
         QGCMenuSeparator { }
         QGCMenuItem {
+            text:           qsTr("Reset to Maritime INS defaults...")
+            enabled:        _activeVehicle && _activeVehicle.px4Firmware && !_activeVehicle.armed
+            onTriggered:    mainWindow.showMessageDialog(qsTr("Reset to Maritime INS defaults"),
+                                qsTr("Reset parameters to firmware defaults, then apply and save the Maritime INS configuration? IMU_MB_C_FACTORY will be set to 0 and IMU_MB_C_FTOG to 1. Serial number (IMU_MB_C_SN) and year (IMU_MB_C_YR) are preserved. All other MB calibration values reset to firmware defaults. Ethernet will use static IP 192.168.0.3, netmask 255.255.255.0, and gateway/DNS 192.168.0.254. Reboot afterward for all settings to take effect."),
+                                Dialog.Cancel | Dialog.Ok,
+                                function() { controller.resetToMaritimeDefaults() })
+        }
+        QGCMenuItem {
+            text:           qsTr("Reset to Aerial INS defaults...")
+            enabled:        _activeVehicle && _activeVehicle.px4Firmware && !_activeVehicle.armed
+            onTriggered:    mainWindow.showMessageDialog(qsTr("Reset to Aerial INS defaults"),
+                                qsTr("Reset parameters to firmware defaults, then apply and save the Aerial INS configuration? IMU_MB_C_FACTORY will be set to 0 and IMU_MB_C_FTOG to 1. Serial number (IMU_MB_C_SN) and year (IMU_MB_C_YR) are preserved. All other MB calibration values reset to firmware defaults. Ethernet will use static IP 192.168.0.3, netmask 255.255.255.0, and gateway/DNS 192.168.0.254. Reboot afterward for all settings to take effect."),
+                                Dialog.Cancel | Dialog.Ok,
+                                function() { controller.resetToAerialDefaults() })
+        }
+        QGCMenuItem {
             text:           qsTr("Reboot Vehicle")
+            enabled:        _activeVehicle && !_activeVehicle.armed
             onTriggered:    mainWindow.showMessageDialog(qsTr("Reboot Vehicle"),
                                                          qsTr("Select Ok to reboot vehicle."),
                                                          Dialog.Cancel | Dialog.Ok,
-                                                         function() { _activeVehicle.rebootVehicle() })
+                                                         function() { controller.rebootViaShell() })
         }
     }
 
@@ -155,11 +175,20 @@ Item {
         }
     }
 
+    QGCLabel {
+        id: resetProgress
+        anchors.top: header.bottom
+        anchors.left: parent.left
+        visible: controller.presetResetInProgress
+        height: visible ? implicitHeight : 0
+        text: controller.presetResetStatus
+    }
+
     /// Group buttons
     QGCFlickable {
         id :                groupScroll
         width:              ScreenTools.defaultFontPixelWidth * 25
-        anchors.top:        header.bottom
+        anchors.top:        resetProgress.bottom
         anchors.bottom:     parent.bottom
         clip:               true
         pixelAligned:       true
@@ -220,7 +249,7 @@ Item {
     TableView {
         id:                 tableView
         anchors.leftMargin: ScreenTools.defaultFontPixelWidth
-        anchors.top:        header.bottom
+        anchors.top:        resetProgress.bottom
         anchors.bottom:     parent.bottom
         anchors.left:       _searchFilter ? parent.left : groupScroll.right
         anchors.right:      parent.right
@@ -287,6 +316,7 @@ Item {
 
             QGCMouseArea {
                 anchors.fill: parent
+                enabled: !controller.presetResetInProgress
                 onClicked: mouse => {
                     _editorDialogFact = fact
                     editorDialogComponent.createObject(mainWindow).open()

@@ -15,6 +15,9 @@
 #include "CompInfoParam.h"
 #include "Vehicle.h"
 #include "QGCLoggingCategory.h"
+#include "MAVLinkProtocol.h"
+#include "MultiVehicleManager.h"
+#include <QtCore/QRegularExpression>
 
 QGC_LOGGING_CATEGORY(ParameterEditorControllerLog, "qgc.qmlcontrols.parametereditorcontroller")
 
@@ -158,11 +161,22 @@ ParameterEditorController::ParameterEditorController(QObject *parent)
     connect(_parameterMgr, &ParameterManager::factAdded,                this, &ParameterEditorController::_factAdded);
     connect(_parameterMgr, &ParameterManager::parametersReadyChanged,   this, &ParameterEditorController::_buildListsIfReady);
 
+    _presetResetTimer.setSingleShot(true);
+    _presetResetTimer.setInterval(10000);
+    connect(&_presetResetTimer, &QTimer::timeout, this, [this]() {
+        _finishPresetReset(tr("Timed out waiting for the INS shell."));
+    });
+    connect(MultiVehicleManager::instance(), &MultiVehicleManager::activeVehicleChanged, this, [this](Vehicle *vehicle) {
+        if (_presetResetTimer.isActive() && vehicle != _presetResetVehicle) {
+            _finishPresetReset(tr("The active vehicle changed."));
+        }
+    });
     _buildListsIfReady(_parameterMgr->parametersReady());
 }
 
 ParameterEditorController::~ParameterEditorController()
 {
+    if (_presetResetVehicle) { _sendPresetShell({}, true); }
     // qCDebug(ParameterEditorControllerLog) << Q_FUNC_INFO << this;
 }
 
@@ -201,6 +215,7 @@ void ParameterEditorController::_buildListsForComponent(int compId)
     for (const QString& factName: _parameterMgr->parameterNames(compId)) {
         Fact* fact = _parameterMgr->getParameter(compId, factName);
         _refreshFactMetaData(compId, fact);
+        _watchSecondaryUdpConfig(fact);
 
         if (_shouldHideFromGroupList(fact)) {
             continue;
@@ -305,6 +320,7 @@ void ParameterEditorController::_buildListsIfReady(bool parametersReady)
 
 void ParameterEditorController::_factAdded(int compId, Fact* fact)
 {
+    _watchSecondaryUdpConfig(fact);
     if (!_listsBuilt) {
         return;
     }
@@ -408,12 +424,19 @@ void ParameterEditorController::clearDiff(void)
     emit diffMultipleComponentsChanged(_diffMultipleComponents);
 }
 
+static bool isUnitIdentityParameter(const QString &name)
+{
+    return name == QStringLiteral("IMU_MB_C_SN") || name == QStringLiteral("IMU_MB_C_YR");
+}
+
 void ParameterEditorController::sendDiff(void)
 {
     for (int i=0; i<_diffList.count(); i++) {
         ParameterEditorDiff* paramDiff = _diffList.value<ParameterEditorDiff*>(i);
 
-        if (paramDiff->load) {
+        // Unit identity must never be copied from another unit's parameter file,
+        // even if a protected entry somehow reaches the review model.
+        if (paramDiff->load && !isUnitIdentityParameter(paramDiff->name)) {
             if (paramDiff->noVehicleValue) {
                 _parameterMgr->_factRawValueUpdateWorker(paramDiff->componentId, paramDiff->name, paramDiff->valueType, paramDiff->fileValueVar);
             } else {
@@ -446,6 +469,9 @@ bool ParameterEditorController::buildDiffFromFile(const QString& filename)
                 int         vehicleId       = wpParams.at(0).toInt();
                 int         componentId     = wpParams.at(1).toInt();
                 QString     paramName       = wpParams.at(2);
+                if (isUnitIdentityParameter(paramName)) {
+                    continue;
+                }
                 QString     fileValueStr    = wpParams.at(3);
                 int         mavParamType    = wpParams.at(4).toInt();
                 QString     vehicleValueStr;
@@ -518,6 +544,278 @@ void ParameterEditorController::refresh(void)
     _parameterMgr->refreshAllParameters();
 }
 
+
+void ParameterEditorController::resetToMaritimeDefaults()
+{
+    // Uses the Maritime reset script preset, with only four explicit reset exceptions.
+    // Also applies the Ethernet defaults from Maritime_INS_CFG.py before saving.
+    const QStringList commands = {
+        QStringLiteral("param reset_all IMU_MB_C_SN IMU_MB_C_YR IMU_MB_C_FACTORY IMU_MB_C_FTOG"),
+        QStringLiteral("param set IMU_MB_C_FACTORY 0"),
+        QStringLiteral("param set IMU_MB_C_FTOG 1"),
+        QStringLiteral("param set SYS_AUTOSTART 60009"),
+        QStringLiteral("param set NM2K_CFG 1"),
+        QStringLiteral("param set J1939_CFG 0"),
+        QStringLiteral("param set NM2K_BITRATE 250000"),
+        QStringLiteral("param set NM2K_127257_RATE 10"),
+        QStringLiteral("param set CAN_TERM 1"),
+        QStringLiteral("param set NM0183_CFG 2"),
+        QStringLiteral("param set MAV_0_CONFIG 101"),
+        QStringLiteral("param set SER_TEL1_BAUD 57600"),
+        QStringLiteral("param set SER_TEL2_BAUD 921600"),
+        QStringLiteral("param set GPS_SEP_BASE_X 0.0"),
+        QStringLiteral("param set GPS_SEP_BASE_Y 0.0"),
+        QStringLiteral("param set GPS_SEP_BASE_Z 0.0"),
+        QStringLiteral("param set GPS_SEP_ROVER_X 0.0"),
+        QStringLiteral("param set GPS_SEP_ROVER_Y 0.0"),
+        QStringLiteral("param set GPS_SEP_ROVER_Z 0.0"),
+        QStringLiteral("param set GPS_EXT_X 0.0"),
+        QStringLiteral("param set GPS_EXT_Y 0.0"),
+        QStringLiteral("param set GPS_EXT_Z 0.0"),
+        QStringLiteral("param set EKF2_IMU_POS_X 0.0"),
+        QStringLiteral("param set EKF2_IMU_POS_Y 0.0"),
+        QStringLiteral("param set EKF2_IMU_POS_Z 0.0"),
+        QStringLiteral("param set EKF2_WTSPD_POS_X 0.0"),
+        QStringLiteral("param set EKF2_WTSPD_POS_Y 0.0"),
+        QStringLiteral("param set EKF2_WTSPD_POS_Z 0.0"),
+        QStringLiteral("param set SENS_BOARD_ROT 0"),
+        QStringLiteral("param set NMUDP_EN 1"),
+        QStringLiteral("param set NMUDP_ODR_GGA 0.0"),
+        QStringLiteral("param set NMUDP_ODR_RMC 0.0"),
+        QStringLiteral("param set NMUDP_ODR_APIMU 10.0"),
+        QStringLiteral("param set NMUDP_ODR_APINS 0.0"),
+        QStringLiteral("param set NMUDP_ODR_APACC 0.0"),
+        QStringLiteral("param set NMUDP_ODR_HDT 0.0"),
+        QStringLiteral("param set NMUDP_ODR_XDR 0.0"),
+        QStringLiteral("param set NMUDP_ODR_ZDA 0.0"),
+        QStringLiteral("param set NM0183_ODR_GGA 0.0"),
+        QStringLiteral("param set NM0183_ODR_RMC 0.0"),
+        QStringLiteral("param set NM0183_ODR_APIMU 10.0"),
+        QStringLiteral("param set NM0183_ODR_APINS 0.0"),
+        QStringLiteral("param set NM0183_ODR_APACC 0.0"),
+        QStringLiteral("param set NM0183_ODR_HDT 0.0"),
+        QStringLiteral("param set NM0183_ODR_XDR 0.0"),
+        QStringLiteral("param set NM0183_ODR_ZDA 0.0"),
+        QStringLiteral("param set NMUDP_MC_IP0 0"),
+        QStringLiteral("param set NMUDP_MC_IP1 0"),
+        QStringLiteral("param set NMUDP_MC_IP2 0"),
+        QStringLiteral("param set NMUDP_MC_IP3 0"),
+        QStringLiteral("param set NMUDP_UC_IP0 0"),
+        QStringLiteral("param set NMUDP_UC_IP1 0"),
+        QStringLiteral("param set NMUDP_UC_IP2 0"),
+        QStringLiteral("param set NMUDP_UC_IP3 0"),
+        QStringLiteral("param set MAV_2_BROADCAST 1"),
+        QStringLiteral("param set MAV_2_CONFIG 1000"),
+        QStringLiteral("param set EKF2_WTSPD_SF0 0.0"),
+        QStringLiteral("param set EKF2_WTSPD_SF1 1.0"),
+        QStringLiteral("param set EKF2_WTSPD_SF2 0.0"),
+        QStringLiteral("param set EKF2_WTSPD_DBN -1.0"),
+        QStringLiteral("param set EKF2_ENG_CTRL 0.0"),
+        QStringLiteral("param set EKF2_ENG_STAT_L 0.0"),
+        QStringLiteral("param set EKF2_ENG_STAT_H 0.0"),
+        QStringLiteral("param set SDLOG_DIRS_MAX 200"),
+        QStringLiteral("param set SDLOG_FILES_MAX 200"),
+    };
+    _startPresetReset(commands, tr("Maritime"));
+}
+
+void ParameterEditorController::resetToAerialDefaults()
+{
+    // Final_Configs_Aerial.py configuration, preserving the existing manufacturing
+    // serial number/year. Other MB calibration resets; FACTORY/FTOG are set below.
+    const QStringList commands = {
+        QStringLiteral("param reset_all IMU_MB_C_SN IMU_MB_C_YR IMU_MB_C_FACTORY IMU_MB_C_FTOG"),
+        QStringLiteral("param set IMU_MB_C_FACTORY 0"),
+        QStringLiteral("param set IMU_MB_C_FTOG 1"),
+        QStringLiteral("param set SYS_AUTOSTART 80000"),
+        QStringLiteral("param set NM2K_CFG 0"),
+        QStringLiteral("param set J1939_CFG 0"),
+        QStringLiteral("param set QNODE_CFG 0"),
+        QStringLiteral("param set CAN_TERM 1"),
+        QStringLiteral("param set NM0183_CFG 2"),
+        QStringLiteral("param set MAV_0_CONFIG 101"),
+        QStringLiteral("param set SER_TEL1_BAUD 57600"),
+        QStringLiteral("param set SER_TEL2_BAUD 921600"),
+        QStringLiteral("param set GPS_SEP_BASE_X 0.0"),
+        QStringLiteral("param set GPS_SEP_BASE_Y 0.0"),
+        QStringLiteral("param set GPS_SEP_BASE_Z 0.0"),
+        QStringLiteral("param set GPS_SEP_ROVER_X 0.0"),
+        QStringLiteral("param set GPS_SEP_ROVER_Y 0.0"),
+        QStringLiteral("param set GPS_SEP_ROVER_Z 0.0"),
+        QStringLiteral("param set EKF2_IMU_POS_X 0.0"),
+        QStringLiteral("param set EKF2_IMU_POS_Y 0.0"),
+        QStringLiteral("param set EKF2_IMU_POS_Z 0.0"),
+        QStringLiteral("param set SENS_BOARD_ROT 0"),
+        QStringLiteral("param set NMUDP_EN 1"),
+        QStringLiteral("param set NMUDP_ODR_GGA 0.0"),
+        QStringLiteral("param set NMUDP_ODR_RMC 0.0"),
+        QStringLiteral("param set NMUDP_ODR_VTG 0.0"),
+        QStringLiteral("param set NMUDP_ODR_APIMU 10.0"),
+        QStringLiteral("param set NMUDP_ODR_APINS 0.0"),
+        QStringLiteral("param set NM0183_ODR_GGA 0.0"),
+        QStringLiteral("param set NM0183_ODR_RMC 0.0"),
+        QStringLiteral("param set NM0183_ODR_VTG 0.0"),
+        QStringLiteral("param set NM0183_ODR_APIMU 10.0"),
+        QStringLiteral("param set NM0183_ODR_APINS 0.0"),
+        QStringLiteral("param set NMUDP_MC_IP0 0"),
+        QStringLiteral("param set NMUDP_MC_IP1 0"),
+        QStringLiteral("param set NMUDP_MC_IP2 0"),
+        QStringLiteral("param set NMUDP_MC_IP3 0"),
+        QStringLiteral("param set MAV_2_BROADCAST 1"),
+        QStringLiteral("param set MAV_2_CONFIG 1000"),
+        QStringLiteral("param set EKF2_WTSPD_SF0 0.0"),
+        QStringLiteral("param set EKF2_WTSPD_SF1 1.0"),
+        QStringLiteral("param set EKF2_WTSPD_SF2 0.0"),
+        QStringLiteral("param set EKF2_WTSPD_DBN -1.0"),
+        QStringLiteral("param set EKF2_ENG_CTRL 0.0"),
+        QStringLiteral("param set EKF2_ENG_STAT_L 0.0"),
+        QStringLiteral("param set EKF2_ENG_STAT_H 0.0"),
+        QStringLiteral("param set SDLOG_DIRS_MAX 200"),
+    };
+    _startPresetReset(commands, tr("Aerial"));
+}
+
+void ParameterEditorController::_startPresetReset(const QStringList &commands, const QString &presetName)
+{
+    if (presetResetInProgress()) { return; }
+    if (!_vehicle || _vehicle != MultiVehicleManager::instance()->activeVehicle()
+        || !_vehicle->px4Firmware() || _vehicle->isOfflineEditingVehicle() || _vehicle->armed()
+        || !_vehicle->vehicleLinkManager()->primaryLink().lock()) {
+        emit presetResetFinished(tr("Connect to a disarmed PX4 INS before resetting."));
+        return;
+    }
+    _presetName = presetName;
+    _presetCommands = commands;
+    // Shared Ethernet defaults from Maritime_INS_CFG.py and Final_Configs_Aerial.py.
+    _presetCommands.append(QStringList {
+        // Static Ethernet defaults; IPv4 values use the script's signed int32 encoding.
+        QStringLiteral("param set NET_CFG_PROTO 1"), // 1
+        QStringLiteral("param set NET_CFG_IPADDR -1062731773"), // 192.168.0.3
+        QStringLiteral("param set NET_CFG_NETMASK -256"), // 255.255.255.0
+        QStringLiteral("param set NET_CFG_ROUTER -1062731522"), // 192.168.0.254
+        QStringLiteral("param set NET_CFG_DNS -1062731522"), // 192.168.0.254
+        QStringLiteral("param save"),
+    });
+    _presetResetVehicle = _vehicle;
+    _presetCommandIndex = -1;
+    _presetOutput.clear();
+    _presetResetStatus = tr("Connecting to INS shell...");
+    _presetReceiveConnection = connect(_vehicle, &Vehicle::mavlinkSerialControl, this,
+        [this](uint8_t device, uint8_t, uint16_t, uint32_t, const QByteArray &data) {
+            if (device != SERIAL_CONTROL_DEV_SHELL || !presetResetInProgress()) { return; }
+            _presetOutput.append(data);
+            if (!_presetOutput.contains("nsh> ")) { return; }
+            const QString output = QString::fromUtf8(_presetOutput);
+            static const QRegularExpression failure(QStringLiteral("error|failed|not found|invalid|unknown command"),
+                                                      QRegularExpression::CaseInsensitiveOption);
+            if (_presetCommandIndex >= 0 && output.contains(failure)) {
+                _finishPresetReset(tr("Command failed: %1\n%2").arg(_presetCommands[_presetCommandIndex], output));
+                return;
+            }
+            _nextPresetCommand();
+        });
+    _presetResetTimer.start();
+    emit presetResetChanged();
+    if (!_sendPresetShell("\n")) { _finishPresetReset(tr("Unable to reach the INS shell.")); }
+}
+
+void ParameterEditorController::rebootViaShell()
+{
+    if (presetResetInProgress()) {
+        return;
+    }
+    if (!_vehicle || _vehicle != MultiVehicleManager::instance()->activeVehicle()
+        || _vehicle->isOfflineEditingVehicle() || _vehicle->armed()) {
+        emit shellRebootError(tr("Connect to a disarmed INS before rebooting."));
+        return;
+    }
+    // Send the same command as the MAVLink console. The leading newline wakes
+    // the shell; reboot does not return a prompt or a MAV_CMD acknowledgement.
+    if (!_sendShell(_vehicle, "\nreboot\n")) {
+        emit shellRebootError(tr("Unable to send reboot to the INS shell."));
+        return;
+    }
+    _shellRebootPending = true;
+    _presetResetStatus = tr("Reboot command sent. Waiting for the INS to restart...");
+    emit presetResetChanged();
+    const QPointer<Vehicle> target = _vehicle;
+    QTimer::singleShot(1000, this, [this, target]() {
+        if (target) {
+            _sendShell(target.data(), {}, true);
+        }
+        _shellRebootPending = false;
+        _presetResetStatus.clear();
+        emit presetResetChanged();
+    });
+}
+
+bool ParameterEditorController::_sendPresetShell(const QByteArray &data, bool close)
+{
+    return _sendShell(_presetResetVehicle.data(), data, close);
+}
+
+bool ParameterEditorController::_sendShell(Vehicle *vehicle, const QByteArray &data, bool close)
+{
+    if (!vehicle) { return false; }
+    auto link = vehicle->vehicleLinkManager()->primaryLink().lock();
+    if (!link) { return false; }
+    // Shell commands can span SERIAL_CONTROL packets. Preserve the newline at
+    // the end, and also send a zero-length packet when releasing the shell.
+    qsizetype offset = 0;
+    do {
+        QByteArray payload = data.mid(offset, MAVLINK_MSG_SERIAL_CONTROL_FIELD_DATA_LEN);
+        const uint8_t count = static_cast<uint8_t>(payload.size());
+        payload.append(MAVLINK_MSG_SERIAL_CONTROL_FIELD_DATA_LEN - payload.size(), '\0');
+        mavlink_message_t message;
+        mavlink_msg_serial_control_pack_chan(
+            MAVLinkProtocol::instance()->getSystemId(), MAVLinkProtocol::getComponentId(),
+            link->mavlinkChannel(), &message, SERIAL_CONTROL_DEV_SHELL,
+            close ? 0 : SERIAL_CONTROL_FLAG_EXCLUSIVE | SERIAL_CONTROL_FLAG_RESPOND | SERIAL_CONTROL_FLAG_MULTI,
+            0, 0, count, reinterpret_cast<const uint8_t *>(payload.constData()),
+            vehicle->id(), vehicle->defaultComponentId());
+        if (!vehicle->sendMessageOnLinkThreadSafe(link.get(), message)) {
+            return false;
+        }
+        offset += count;
+    } while (offset < data.size());
+    return true;
+}
+
+void ParameterEditorController::_nextPresetCommand()
+{
+    if (!_presetResetVehicle || _presetResetVehicle->armed()) {
+        _finishPresetReset(tr("The INS disconnected or became armed."));
+        return;
+    }
+    if (++_presetCommandIndex == _presetCommands.size()) {
+        _finishPresetReset();
+        return;
+    }
+    _presetOutput.clear();
+    _presetResetStatus = tr("%1/%2: %3").arg(_presetCommandIndex + 1)
+        .arg(_presetCommands.size()).arg(_presetCommands[_presetCommandIndex]);
+    emit presetResetChanged();
+    _presetResetTimer.start();
+    if (!_sendPresetShell(_presetCommands[_presetCommandIndex].toUtf8() + '\n')) {
+        _finishPresetReset(tr("Unable to send the command to the INS."));
+    }
+}
+
+void ParameterEditorController::_finishPresetReset(const QString &error)
+{
+    _presetResetTimer.stop();
+    disconnect(_presetReceiveConnection);
+    _sendPresetShell({}, true);
+    const bool canRefresh = _presetResetVehicle && _presetResetVehicle == MultiVehicleManager::instance()->activeVehicle();
+    _presetResetVehicle.clear();
+    _presetResetStatus.clear();
+    emit presetResetChanged();
+    if (canRefresh) { refresh(); }
+    emit presetResetFinished(error.isEmpty()
+        ? tr("%1 INS defaults saved. Reboot the INS for all settings to take effect.").arg(_presetName)
+        : tr("Reset stopped. Some settings may already have changed.\n%1").arg(error));
+}
+
 void ParameterEditorController::resetAllToDefaults(void)
 {
     _parameterMgr->resetAllParametersToDefaults();
@@ -580,13 +878,71 @@ QString ParameterEditorController::_parameterDisplayGroup(Fact *fact) const
     return fact->group();
 }
 
+bool ParameterEditorController::_secondaryUdpSettingsVisible(Fact *fact) const
+{
+    if (!fact) {
+        return false;
+    }
+    const QString configName = QStringLiteral("NMUDP_2_EN");
+    if (!fact->name().startsWith(QStringLiteral("NMUDP_2_")) || fact->name() == configName) {
+        return true;
+    }
+    return _parameterMgr->parameterExists(fact->componentId(), configName)
+        && _parameterMgr->getParameter(fact->componentId(), configName)->rawValue().toInt() == 1;
+}
+
+void ParameterEditorController::_watchSecondaryUdpConfig(Fact *fact)
+{
+    if (fact && fact->name() == QStringLiteral("NMUDP_2_EN")) {
+        // Defer model changes until the parameter editor has handled the value change.
+        connect(fact, &Fact::rawValueChanged, this, &ParameterEditorController::_secondaryUdpConfigChanged,
+                static_cast<Qt::ConnectionType>(Qt::QueuedConnection | Qt::UniqueConnection));
+        QMetaObject::invokeMethod(this, &ParameterEditorController::_secondaryUdpConfigChanged, Qt::QueuedConnection);
+    }
+}
+
+void ParameterEditorController::_secondaryUdpConfigChanged()
+{
+    if (!_listsBuilt) {
+        return;
+    }
+    // Keep the existing groups and selection; only repopulate their visible rows.
+    for (int i = 0; i < _categories.count(); ++i) {
+        auto *category = _categories.value<ParameterEditorCategory*>(i);
+        for (int j = 0; j < category->groups.count(); ++j) {
+            auto *group = category->groups.value<ParameterEditorGroup*>(j);
+            if (group->name != QStringLiteral("NMEA0183")) {
+                continue;
+            }
+            group->facts.beginReset();
+            group->facts.clear();
+            for (const QString &name : _parameterMgr->parameterNames(group->componentId)) {
+                Fact *fact = _parameterMgr->getParameter(group->componentId, name);
+                if (!_shouldHideFromGroupList(fact)
+                    && _parameterDisplayCategory(fact) == category->name
+                    && _parameterDisplayGroup(fact) == group->name) {
+                    group->facts.append(fact);
+                }
+            }
+            group->facts.endReset();
+        }
+    }
+    if (!_searchText.isEmpty() || _showModifiedOnly) {
+        _performSearch();
+    }
+}
+
 bool ParameterEditorController::_shouldHideFromGroupList(Fact *fact) const
 {
-    return fact && (_parameterDisplayGroup(fact) == QStringLiteral("Battery Calibration"));
+    return !_secondaryUdpSettingsVisible(fact) || (_parameterDisplayGroup(fact) == QStringLiteral("Battery Calibration"));
 }
 
 bool ParameterEditorController::_shouldShow(Fact* fact) const
 {
+    if (!_secondaryUdpSettingsVisible(fact)) {
+        return false;
+    }
+
     if (!_showModifiedOnly) {
         return true;
     }
