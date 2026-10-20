@@ -11,6 +11,13 @@ SettingsPage {
     id: root
 
     property NmeaReceiveMonitor receiveMonitor: NmeaReceiveMonitor {}
+    property QGCFileDialog logFileDialog: QGCFileDialog {
+        title: qsTr("Log NMEA stream to text file")
+        folder: QGroundControl.settingsManager.appSettings.logSavePath
+        nameFilters: [qsTr("Text files (*.txt)")]
+        defaultSuffix: "txt"
+        onAcceptedForSave: (file) => QGroundControl.linkManager.startNmeaLogging(file)
+    }
 
     property string sendStatus: ""
     property var receiveStatus: QGroundControl.linkManager.nmeaReceiveStatus()
@@ -130,13 +137,32 @@ SettingsPage {
 
     SettingsGroupLayout {
         heading: qsTr("NMEA receive status")
-        QGCButton {
-            text: qsTr("Open receive monitor")
-            onClicked: {
-                root.receiveMonitor.show()
-                root.receiveMonitor.raise()
-                root.receiveMonitor.requestActivate()
+        RowLayout {
+            QGCButton {
+                text: qsTr("Open receive monitor")
+                onClicked: {
+                    root.receiveMonitor.show()
+                    root.receiveMonitor.raise()
+                    root.receiveMonitor.requestActivate()
+                }
             }
+            QGCButton {
+                text: QGroundControl.linkManager.nmeaLogging ? qsTr("Stop logging") : qsTr("Log to text file")
+                onClicked: {
+                    if (QGroundControl.linkManager.nmeaLogging) {
+                        QGroundControl.linkManager.stopNmeaLogging()
+                    } else {
+                        root.logFileDialog.openForSave()
+                    }
+                }
+            }
+        }
+        QGCLabel {
+            Layout.maximumWidth: ScreenTools.defaultFontPixelWidth * 65
+            Layout.fillWidth: true
+            wrapMode: Text.WrapAnywhere
+            text: QGroundControl.linkManager.nmeaLogStatus
+            visible: text.length > 0
         }
         RowLayout {
             Rectangle {

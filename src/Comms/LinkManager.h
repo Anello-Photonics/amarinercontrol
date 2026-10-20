@@ -10,6 +10,7 @@
 #pragma once
 
 #include <QtCore/QList>
+#include <QtCore/QFile>
 #include <QtCore/QLoggingCategory>
 #include <QtCore/QStringList>
 #include <QtQmlIntegration/QtQmlIntegration>
@@ -59,11 +60,17 @@ public:
     static LinkManager *instance();
 
     Q_PROPERTY(bool nmeaConnectionEnabled READ nmeaConnectionEnabled WRITE setNmeaConnectionEnabled NOTIFY nmeaConnectionEnabledChanged)
+    Q_PROPERTY(bool nmeaLogging READ nmeaLogging NOTIFY nmeaLoggingChanged)
+    Q_PROPERTY(QString nmeaLogStatus READ nmeaLogStatus NOTIFY nmeaLoggingChanged)
 
     void init();
     bool nmeaConnectionEnabled() const { return _nmeaConnectionEnabled; }
     Q_INVOKABLE void setNmeaConnectionEnabled(bool enabled);
     Q_INVOKABLE QVariantMap nmeaReceiveStatus() const;
+    bool nmeaLogging() const { return _nmeaLogFile.isOpen(); }
+    QString nmeaLogStatus() const { return _nmeaLogStatus; }
+    Q_INVOKABLE void startNmeaLogging(const QString &fileName);
+    Q_INVOKABLE void stopNmeaLogging();
 
     /// Create/Edit Link Configuration
     Q_INVOKABLE LinkConfiguration *createConfiguration(int type, const QString &name);
@@ -131,6 +138,7 @@ public:
     static constexpr uint8_t invalidMavlinkChannel() { return std::numeric_limits<uint8_t>::max(); }
 
 signals:
+    void nmeaLoggingChanged();
     void nmeaConnectionEnabledChanged();
     void nmeaBytesReceived(const QString &text);
     void mavlinkSupportForwardingEnabledChanged();
@@ -154,6 +162,9 @@ private:
 #endif
 
     bool _nmeaConnectionEnabled = true;
+    void _observeNmeaBytes(const QByteArray &bytes);
+    QFile _nmeaLogFile;
+    QString _nmeaLogStatus;
     NmeaReceiveTracker _nmeaReceive;
     QString _nmeaMulticastGroup;
     QString _nmeaUdpError;

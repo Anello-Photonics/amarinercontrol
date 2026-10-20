@@ -127,8 +127,7 @@ void LinkManager::init()
     connect(_nmeaSocket, &UdpIODevice::datagramReceived, this, [this](const QByteArray &bytes) {
         if (_autoConnectSettings->autoConnectNmeaPort()->cookedValueString() == "UDP Port" &&
             _nmeaSocket->localPort() == _autoConnectSettings->nmeaUdpPort()->rawValue().toUInt()) {
-            _nmeaReceive.feed(bytes);
-            emit nmeaBytesReceived(QString::fromLatin1(bytes));
+            _observeNmeaBytes(bytes);
         }
     });
 #endif
@@ -153,6 +152,43 @@ void LinkManager::setNmeaConnectionEnabled(bool enabled)
 #endif
     emit nmeaConnectionEnabledChanged();
     if (enabled) _updateAutoConnectLinks();
+}
+
+void LinkManager::startNmeaLogging(const QString &fileName)
+{
+    if (_nmeaLogFile.isOpen() || fileName.isEmpty()) return;
+    _nmeaLogFile.setFileName(fileName);
+    // Preserve the incoming bytes and line endings exactly, including on Windows.
+    if (_nmeaLogFile.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+        _nmeaLogStatus = tr("Logging to %1").arg(fileName);
+    } else {
+        _nmeaLogStatus = tr("Cannot open NMEA log %1: %2").arg(fileName, _nmeaLogFile.errorString());
+    }
+    emit nmeaLoggingChanged();
+}
+
+void LinkManager::stopNmeaLogging()
+{
+    if (!_nmeaLogFile.isOpen()) return;
+    const bool flushed = _nmeaLogFile.flush();
+    _nmeaLogStatus = flushed
+        ? tr("NMEA log saved to %1").arg(_nmeaLogFile.fileName())
+        : tr("NMEA log flush failed: %1").arg(_nmeaLogFile.errorString());
+    _nmeaLogFile.close();
+    emit nmeaLoggingChanged();
+}
+
+void LinkManager::_observeNmeaBytes(const QByteArray &bytes)
+{
+    _nmeaReceive.feed(bytes);
+    if (_nmeaLogFile.isOpen() && !bytes.isEmpty()) {
+        if (_nmeaLogFile.write(bytes) != bytes.size() || !_nmeaLogFile.flush()) {
+            _nmeaLogStatus = tr("NMEA logging stopped: %1").arg(_nmeaLogFile.errorString());
+            _nmeaLogFile.close();
+            emit nmeaLoggingChanged();
+        }
+    }
+    emit nmeaBytesReceived(QString::fromLatin1(bytes));
 }
 
 QVariantMap LinkManager::nmeaReceiveStatus() const
@@ -690,6 +726,7 @@ QString LinkManager::sendNmeaSentence(const QString &sentence, bool calculateChe
 
 void LinkManager::shutdown()
 {
+    stopNmeaLogging();
     setConnectionsSuspended(tr("Shutdown"));
     disconnectAll();
 
@@ -1018,8 +1055,7 @@ void LinkManager::_addSerialAutoConnectLink()
                 const QString deviceName = portInfo.systemLocation().trimmed();
                 auto *source = new NmeaSerialSource(newPort, [this, deviceName](const QByteArray &bytes) {
                     if (_autoConnectSettings->autoConnectNmeaPort()->cookedValueString() == deviceName) {
-                        _nmeaReceive.feed(bytes);
-                        emit nmeaBytesReceived(QString::fromLatin1(bytes));
+                        _observeNmeaBytes(bytes);
                     }
                 });
                 QGCPositionManager::instance()->setNmeaSourceDevice(source);
