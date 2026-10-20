@@ -10,11 +10,14 @@
 #pragma once
 
 #include <QtCore/QList>
+#include <QtCore/QFile>
 #include <QtCore/QLoggingCategory>
 #include <QtCore/QStringList>
 #include <QtQmlIntegration/QtQmlIntegration>
 
 #include <limits>
+#include <QtCore/QVariantMap>
+#include "NmeaReceiveTracker.h"
 
 #include "LinkConfiguration.h"
 #include "LinkInterface.h"
@@ -56,7 +59,18 @@ public:
 
     static LinkManager *instance();
 
+    Q_PROPERTY(bool nmeaConnectionEnabled READ nmeaConnectionEnabled WRITE setNmeaConnectionEnabled NOTIFY nmeaConnectionEnabledChanged)
+    Q_PROPERTY(bool nmeaLogging READ nmeaLogging NOTIFY nmeaLoggingChanged)
+    Q_PROPERTY(QString nmeaLogStatus READ nmeaLogStatus NOTIFY nmeaLoggingChanged)
+
     void init();
+    bool nmeaConnectionEnabled() const { return _nmeaConnectionEnabled; }
+    Q_INVOKABLE void setNmeaConnectionEnabled(bool enabled);
+    Q_INVOKABLE QVariantMap nmeaReceiveStatus() const;
+    bool nmeaLogging() const { return _nmeaLogFile.isOpen(); }
+    QString nmeaLogStatus() const { return _nmeaLogStatus; }
+    Q_INVOKABLE void startNmeaLogging(const QString &fileName);
+    Q_INVOKABLE void stopNmeaLogging();
 
     /// Create/Edit Link Configuration
     Q_INVOKABLE LinkConfiguration *createConfiguration(int type, const QString &name);
@@ -70,6 +84,8 @@ public:
     Q_INVOKABLE void createMavlinkForwardingSupportLink();
     /// Called to signal app shutdown. Disconnects all links while turning off auto-connect.
     Q_INVOKABLE void shutdown();
+    // Returns an error message, or an empty string when queued for transmission.
+    Q_INVOKABLE QString sendNmeaSentence(const QString &sentence, bool calculateChecksum, const QString &udpAddress, int udpPort);
     Q_INVOKABLE LogReplayLink *startLogReplay(const QString &logFile);
 
     QList<SharedLinkInterfacePtr> links() { return _rgLinks; }
@@ -122,6 +138,9 @@ public:
     static constexpr uint8_t invalidMavlinkChannel() { return std::numeric_limits<uint8_t>::max(); }
 
 signals:
+    void nmeaLoggingChanged();
+    void nmeaConnectionEnabledChanged();
+    void nmeaBytesReceived(const QString &text);
     void mavlinkSupportForwardingEnabledChanged();
     void isBluetoothAvailableChanged();
 
@@ -142,6 +161,13 @@ private:
     void _addZeroConfAutoConnectLink();
 #endif
 
+    bool _nmeaConnectionEnabled = true;
+    void _observeNmeaBytes(const QByteArray &bytes);
+    QFile _nmeaLogFile;
+    QString _nmeaLogStatus;
+    NmeaReceiveTracker _nmeaReceive;
+    QString _nmeaMulticastGroup;
+    QString _nmeaUdpError;
     QTimer *_portListTimer = nullptr;
     QmlObjectListModel *_qmlConfigurations = nullptr;
     AutoConnectSettings *_autoConnectSettings = nullptr;
