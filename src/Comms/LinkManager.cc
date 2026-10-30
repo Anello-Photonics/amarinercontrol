@@ -28,7 +28,6 @@
 #ifndef QGC_NO_SERIAL_LINK
 #include "SerialLink.h"
 #include "GPSManager.h"
-#include "PositionManager.h"
 #include "UdpIODevice.h"
 #include "NmeaUdpConfiguration.h"
 #include "GPSRtk.h"
@@ -52,41 +51,9 @@
 
 #include <QtCore/QApplicationStatic>
 #include <QtCore/QTimer>
-#include <functional>
 
 QGC_LOGGING_CATEGORY(LinkManagerLog, "qgc.comms.linkmanager")
 QGC_LOGGING_CATEGORY(LinkManagerVerboseLog, "qgc.comms.linkmanager:verbose")
-
-#ifndef QGC_NO_SERIAL_LINK
-// Read the serial stream once, then expose the same bytes to the position parser.
-class NmeaSerialSource : public QIODevice
-{
-public:
-    NmeaSerialSource(QSerialPort *port, std::function<void(const QByteArray &)> observe)
-        : QIODevice(port) {
-        open(QIODevice::ReadOnly);
-        connect(port, &QSerialPort::readyRead, this, [this, port, observe]() {
-            const QByteArray bytes = port->readAll();
-            _buffer.append(bytes);
-            observe(bytes);
-            emit readyRead();
-        });
-    }
-    bool isSequential() const override { return true; }
-    bool canReadLine() const override { return _buffer.contains('\n') || QIODevice::canReadLine(); }
-    qint64 bytesAvailable() const override { return _buffer.size() + QIODevice::bytesAvailable(); }
-protected:
-    qint64 readData(char *data, qint64 maxSize) override {
-        const qint64 size = qMin<qint64>(maxSize, _buffer.size());
-        std::copy_n(_buffer.constData(), size, data);
-        _buffer.remove(0, size);
-        return size;
-    }
-    qint64 writeData(const char *, qint64) override { return -1; }
-private:
-    QByteArray _buffer;
-};
-#endif
 
 Q_APPLICATION_STATIC(LinkManager, _linkManagerInstance);
 
@@ -129,6 +96,8 @@ void LinkManager::init()
             _nmeaSocket->localPort() == _autoConnectSettings->nmeaUdpPort()->rawValue().toUInt()) {
             _observeNmeaBytes(bytes);
         }
+        // Boat NMEA is observed above, not used as the ground station position.
+        (void) _nmeaSocket->read(bytes.size());
     });
 #endif
 
@@ -636,7 +605,6 @@ void LinkManager::_updateAutoConnectLinks()
             _nmeaReceive.reset();
             _nmeaMulticastGroup = multicastGroup;
             _nmeaUdpError = configureNmeaUdpSocket(_nmeaSocket, _autoConnectSettings->nmeaUdpPort()->rawValue().toUInt(), multicastGroup);
-            if (_nmeaUdpError.isEmpty()) QGCPositionManager::instance()->setNmeaSourceDevice(_nmeaSocket);
         }
 #ifndef QGC_NO_SERIAL_LINK
         if (_nmeaPort) {
@@ -1051,14 +1019,14 @@ void LinkManager::_addSerialAutoConnectLink()
                     delete newPort;
                     continue;
                 }
-                // This will stop polling old device if previously set
+                // Receive boat NMEA without changing the ground station position source.
                 const QString deviceName = portInfo.systemLocation().trimmed();
-                auto *source = new NmeaSerialSource(newPort, [this, deviceName](const QByteArray &bytes) {
+                connect(newPort, &QSerialPort::readyRead, this, [this, newPort, deviceName]() {
+                    const QByteArray bytes = newPort->readAll();
                     if (_autoConnectSettings->autoConnectNmeaPort()->cookedValueString() == deviceName) {
                         _observeNmeaBytes(bytes);
                     }
                 });
-                QGCPositionManager::instance()->setNmeaSourceDevice(source);
                 if (_nmeaPort) {
                     delete _nmeaPort;
                 }
