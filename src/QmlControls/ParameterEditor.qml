@@ -82,6 +82,14 @@ Item {
                                 function() { controller.resetToMaritimeDefaults() })
         }
         QGCMenuItem {
+            text:           qsTr("Reset to Ground INS defaults...")
+            enabled:        _activeVehicle && _activeVehicle.px4Firmware && !_activeVehicle.armed
+            onTriggered:    mainWindow.showMessageDialog(qsTr("Reset to Ground INS defaults"),
+                                qsTr("Reset parameters to firmware defaults, then apply and save the Ground INS configuration? EKF2_ZGYR_CTRL=1, EKF2_SWAY_CTRL=0, EKF2_GSWAY_CTRL=1, and EKF2_WTSPD_CTRL=63? IMU_MB_C_FACTORY will be set to 0 and IMU_MB_C_FTOG to 1. Serial number (IMU_MB_C_SN) and year (IMU_MB_C_YR) are preserved. All other MB calibration values reset to firmware defaults. Ethernet will use static IP 192.168.0.3, netmask 255.255.255.0, and gateway/DNS 192.168.0.254. Reboot afterward for all settings to take effect."),
+                                Dialog.Cancel | Dialog.Ok,
+                                function() { controller.resetToGroundDefaults() })
+        }
+        QGCMenuItem {
             text:           qsTr("Reset to Aerial INS defaults...")
             enabled:        _activeVehicle && _activeVehicle.px4Firmware && !_activeVehicle.armed
             onTriggered:    mainWindow.showMessageDialog(qsTr("Reset to Aerial INS defaults"),

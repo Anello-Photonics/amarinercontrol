@@ -547,6 +547,23 @@ void ParameterEditorController::refresh(void)
 
 void ParameterEditorController::resetToMaritimeDefaults()
 {
+    _startPresetReset(_maritimeDefaultCommands(), tr("Maritime"));
+}
+
+void ParameterEditorController::resetToGroundDefaults()
+{
+    QStringList commands = _maritimeDefaultCommands();
+    commands.append(QStringList {
+        QStringLiteral("param set EKF2_ZGYR_CTRL 1"),
+        QStringLiteral("param set EKF2_SWAY_CTRL 0"),
+        QStringLiteral("param set EKF2_GSWAY_CTRL 1"),
+        QStringLiteral("param set EKF2_WTSPD_CTRL 63"),
+    });
+    _startPresetReset(commands, tr("Ground"));
+}
+
+QStringList ParameterEditorController::_maritimeDefaultCommands()
+{
     // Uses the Maritime reset script preset, with only four explicit reset exceptions.
     // Also applies the Ethernet defaults from Maritime_INS_CFG.py before saving.
     const QStringList commands = {
@@ -616,7 +633,7 @@ void ParameterEditorController::resetToMaritimeDefaults()
         QStringLiteral("param set SDLOG_DIRS_MAX 200"),
         QStringLiteral("param set SDLOG_FILES_MAX 200"),
     };
-    _startPresetReset(commands, tr("Maritime"));
+    return commands;
 }
 
 void ParameterEditorController::resetToAerialDefaults()

@@ -158,6 +158,7 @@ public:
     Q_INVOKABLE void clearDiff                      (void);
     Q_INVOKABLE void sendDiff                       (void);
     Q_INVOKABLE void resetToMaritimeDefaults();
+    Q_INVOKABLE void resetToGroundDefaults();
     Q_INVOKABLE void resetToAerialDefaults();
     Q_INVOKABLE void rebootViaShell();
     bool presetResetInProgress() const { return _presetResetTimer.isActive() || _shellRebootPending; }
@@ -195,6 +196,7 @@ private slots:
     void _secondaryUdpConfigChanged();
 
 private:
+    static QStringList _maritimeDefaultCommands();
     void _startPresetReset(const QStringList &commands, const QString &presetName);
     QString _presetName;
     static bool _sendShell(Vehicle *vehicle, const QByteArray &data, bool close = false);
