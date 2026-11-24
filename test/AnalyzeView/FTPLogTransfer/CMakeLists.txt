@@ -1,0 +1,15 @@
+cmake_minimum_required(VERSION 3.21)
+project(FTPLogTransferTest LANGUAGES CXX)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_AUTOMOC ON)
+find_package(Qt6 REQUIRED COMPONENTS Core Network Qml Test)
+add_executable(FTPLogTransferTest FTPLogTransferTest.cc ../../../src/AnalyzeView/FTPLogController.cc ../../../src/AnalyzeView/FTPLogController.h)
+target_include_directories(FTPLogTransferTest PRIVATE ../../../src/AnalyzeView)
+target_link_libraries(FTPLogTransferTest PRIVATE Qt6::Core Qt6::Network Qt6::Qml Qt6::Test)
+if(WIN32)
+    add_custom_command(TARGET FTPLogTransferTest POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_RUNTIME_DLLS:FTPLogTransferTest> $<TARGET_FILE_DIR:FTPLogTransferTest>
+        COMMAND_EXPAND_LISTS)
+endif()
+enable_testing()
+add_test(NAME FTPLogTransferTest COMMAND FTPLogTransferTest)
