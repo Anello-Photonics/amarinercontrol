@@ -1,5 +1,7 @@
 target_sources(${CMAKE_PROJECT_NAME}
     PRIVATE
+        FTPLogController.cc
+        FTPLogController.h
         ExifParser.cc
         ExifParser.h
         GeoTagController.cc
@@ -38,6 +40,7 @@ qt_add_qml_module(AnalyzeViewModule
     RESOURCE_PREFIX /qml
     QML_FILES
         AnalyzeView.qml
+        FTPLogTransferPage.qml
         GeoTagPage.qml
         LogDownloadPage.qml
         LiveLogRecordingPage.qml

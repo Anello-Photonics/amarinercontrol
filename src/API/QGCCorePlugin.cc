@@ -73,6 +73,10 @@ const QVariantList &QGCCorePlugin::analyzePages()
             tr("Live Log Recording"),
             QUrl::fromUserInput(QStringLiteral("qrc:/qml/QGroundControl/AnalyzeView/LiveLogRecordingPage.qml")),
             QUrl::fromUserInput(QStringLiteral("qrc:/qmlimages/LogDownloadIcon.svg")))),
+        QVariant::fromValue(new QmlComponentInfo(
+            tr("FTP Log Transfer"),
+            QUrl::fromUserInput(QStringLiteral("qrc:/qml/QGroundControl/AnalyzeView/FTPLogTransferPage.qml")),
+            QUrl::fromUserInput(QStringLiteral("qrc:/qmlimages/LogDownloadIcon.svg")))),
 #if !defined(Q_OS_ANDROID) && !defined(Q_OS_IOS)
         //QVariant::fromValue(new QmlComponentInfo(
         //    tr("GeoTag Images"),
